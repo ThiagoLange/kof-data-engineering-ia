@@ -1,26 +1,64 @@
-# Kof
+# Kof toolchain & build
 *.class
 *.jar
+*.war
 target/
 dist/
 build/
 out/
-# Lakehouse artifacts (gerados por kof run)
+bin/
+kof.jar
+kof-cli*.jar
+# Kof local install (user-owned ~/.kof, não commitado se copiado)
+.kof/
+# Lakehouse & pipeline artifacts (gerados por kof run — recriáveis)
 modulo-08-data/01-lakehouse/lake*.jsonl
 modulo-08-data/01-lakehouse/watermark.csv
+modulo-08-data/01-lakehouse/lake/
 modulo-08-data/02-quality/report.html
 modulo-08-data/04-feature-store/features.jsonl
 modulo-04-deep/05-registry/registry.jsonl
+modulo-04-deep/04-otimizadores/adam.ckpt.txt
+modulo-04-deep/04-otimizadores/adam.ckpt.json
+modulo-05-llms/04-vector-store/store.jsonl
 modulo-07-integracao/01-pipeline-batch/report.html
 modulo-07-integracao/02-rag-completo/store.jsonl
-# Web charts (gerados, mas mantidos como exemplo)
-# Descomente para ignorar SVGs gerados:
+modulo-07-integracao/03-agente-memoria/store.jsonl
+# Web charts — mantidos como exemplo, mas descomente para ignorar se regenerar sempre
+# modulo-02-dataframe/03-svg-charts/*.svg
 # modulo-02-dataframe/05-web-charts/*.svg
 # modulo-02-dataframe/05-web-charts/*.html
+# modulo-02-dataframe/04-html-report/report.html
+# Temporários de teste
+test.bin
+*.tmp
+*.temp
+*.log
+*~
+# Datasets gerados (manter apenas os 8 oficiais em datasets/)
+datasets/*.out.jsonl
 # OS
 .DS_Store
 Thumbs.db
+ehthumbs.db
+Desktop.ini
+# IDEs & editores
+.idea/
+.vscode/
+*.swp
+*.swo
 *~
-*.tmp
-*.log
-test.bin
+# Env & secrets (nunca commitado)
+.env
+.env.local
+.env.*.local
+*.key
+*.pem
+# Python / Node (se usar scripts auxiliares)
+__pycache__/
+*.pyc
+venv/
+node_modules/
+# Coverage & reports
+coverage/
+htmlcov/
