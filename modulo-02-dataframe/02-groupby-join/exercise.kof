@@ -1,0 +1,267 @@
+// modulo-02-dataframe/02-groupby-join/exercise.kof
+// Run with: kof test modulo-02-dataframe/02-groupby-join/exercise.kof
+
+split(String s, String delim): List<String> {
+    var out = listOf<String>()
+    if (delim.length == 0) { out.add(s); return out }
+    var start = 0
+    var n = s.length
+    var i = 0
+    while (i < n) {
+        if (s.charAt(i) == delim.charAt(0)) { out.add(s.substring(start, i)); start = i + 1 }
+        i = i + 1
+    }
+    out.add(s.substring(start, n))
+    return out
+}
+
+trim(String s): String {
+    var n = s.length
+    var start = 0
+    while (start < n) { var c = s.charAt(start); if (c != 32 && c != 9 && c != 10 && c != 13) { break } start = start + 1 }
+    var end = n
+    while (end > start) { var c = s.charAt(end - 1); if (c != 32 && c != 9 && c != 10 && c != 13) { break } end = end - 1 }
+    return s.substring(start, end)
+}
+
+sqrt(Double x): Double {
+    if (x <= 0.0) { return 0.0 }
+    var g = x
+    var i = 0
+    while (i < 20) { g = 0.5 * (g + x / g); i = i + 1 }
+    return g
+}
+
+mean(List<Double> xs): Double {
+    var n = xs.size()
+    if (n == 0) { return 0.0 }
+    var s = 0.0
+    var i = 0
+    while (i < n) { s = s + xs.get(i); i = i + 1 }
+    var nf = 1.0 * n
+    return s / nf
+}
+
+stddev(List<Double> xs, Double mu): Double {
+    var n = xs.size()
+    if (n == 0) { return 0.0 }
+    var acc = 0.0
+    var i = 0
+    while (i < n) { var d = xs.get(i) - mu; acc = acc + d * d; i = i + 1 }
+    var nf = 1.0 * n
+    var v = acc / nf
+    return sqrt(v)
+}
+
+median(List<Double> xs): Double {
+    var n = xs.size()
+    if (n == 0) { throw "median: empty" }
+    var cp = listOf<Double>()
+    var i = 0
+    while (i < n) { cp.add(xs.get(i)); i = i + 1 }
+    var swapped = 1
+    while (swapped == 1) {
+        swapped = 0
+        var j = 0
+        while (j < n - 1) {
+            if (cp.get(j) > cp.get(j + 1)) { var tmp = cp.get(j); cp.set(j, cp.get(j + 1)); cp.set(j + 1, tmp); swapped = 1 }
+            j = j + 1
+        }
+    }
+    if (n % 2 == 1) { return cp.get(n / 2) }
+    var a = cp.get(n / 2 - 1)
+    var b = cp.get(n / 2)
+    return (a + b) / 2.0
+}
+
+minD(List<Double> xs): Double {
+    if (xs.size() == 0) { throw "min: empty" }
+    var m = xs.get(0)
+    var i = 1
+    while (i < xs.size()) { if (xs.get(i) < m) { m = xs.get(i) } i = i + 1 }
+    return m
+}
+
+maxD(List<Double> xs): Double {
+    if (xs.size() == 0) { throw "max: empty" }
+    var m = xs.get(0)
+    var i = 1
+    while (i < xs.size()) { if (xs.get(i) > m) { m = xs.get(i) } i = i + 1 }
+    return m
+}
+
+record Customer(Int customer_id, String name, String city)
+record Transaction(Int tx_id, Int customer_id, Double amount)
+record Joined(Int tx_id, Int customer_id, Double amount, String name, String city)
+record Agg(String city, Int count, Double sum, Double mean, Double min, Double max, Double median, Double stddev)
+
+loadCustomers(String path): List<Customer> {
+    var raw = File(path).readText()
+    if (raw == null) { throw "join: cannot read " + path }
+    var lines = split(raw, "\n")
+    var out = listOf<Customer>()
+    var i = 0
+    while (i < lines.size()) { var line = trim(lines.get(i)); if (line.length > 0) { out.add(json.decode<Customer>(line)) } i = i + 1 }
+    return out
+}
+
+loadTransactions(String path): List<Transaction> {
+    var raw = File(path).readText()
+    if (raw == null) { throw "join: cannot read " + path }
+    var lines = split(raw, "\n")
+    var out = listOf<Transaction>()
+    var i = 0
+    while (i < lines.size()) { var line = trim(lines.get(i)); if (line.length > 0) { out.add(json.decode<Transaction>(line)) } i = i + 1 }
+    return out
+}
+
+findCustomer(List<Customer> cs, Int id): Customer {
+    var i = 0
+    while (i < cs.size()) { if (cs.get(i).customer_id == id) { return cs.get(i) } i = i + 1 }
+    throw "join: customer not found for id " + id.toString()
+}
+
+hashJoin(List<Transaction> txs, List<Customer> cs): List<Joined> {
+    var out = listOf<Joined>()
+    var i = 0
+    while (i < txs.size()) { var t = txs.get(i); var c = findCustomer(cs, t.customer_id); out.add(Joined(t.tx_id, t.customer_id, t.amount, c.name, c.city)); i = i + 1 }
+    return out
+}
+
+leftJoin(List<Transaction> txs, List<Customer> cs): List<Joined> {
+    var out = listOf<Joined>()
+    var i = 0
+    while (i < txs.size()) {
+        var t = txs.get(i)
+        var found = 0
+        var j = 0
+        while (j < cs.size()) {
+            if (cs.get(j).customer_id == t.customer_id) { out.add(Joined(t.tx_id, t.customer_id, t.amount, cs.get(j).name, cs.get(j).city)); found = 1; j = cs.size() } else { j = j + 1 }
+        }
+        if (found == 0) { out.add(Joined(t.tx_id, t.customer_id, t.amount, "", "")) }
+        i = i + 1
+    }
+    return out
+}
+
+distinctCities(List<Joined> rows): List<String> {
+    var cats = listOf<String>()
+    var i = 0
+    while (i < rows.size()) {
+        var city = rows.get(i).city
+        var found = 0
+        var j = 0
+        while (j < cats.size()) { if (cats.get(j) == city) { found = 1 } j = j + 1 }
+        if (found == 0) { cats.add(city) }
+        i = i + 1
+    }
+    return cats
+}
+
+amountsForCity(List<Joined> rows, String city): List<Double> {
+    var out = listOf<Double>()
+    var i = 0
+    while (i < rows.size()) { if (rows.get(i).city == city) { out.add(rows.get(i).amount) } i = i + 1 }
+    return out
+}
+
+groupByCity(List<Joined> rows): List<Agg> {
+    var cities = distinctCities(rows)
+    var out = listOf<Agg>()
+    var c = 0
+    while (c < cities.size()) {
+        var city = cities.get(c)
+        var xs = amountsForCity(rows, city)
+        var mu = mean(xs)
+        var sd = stddev(xs, mu)
+        var med = median(xs)
+        var lo = minD(xs)
+        var hi = maxD(xs)
+        var s = 0.0
+        var k = 0
+        while (k < xs.size()) { s = s + xs.get(k); k = k + 1 }
+        out.add(Agg(city, xs.size(), s, mu, lo, hi, med, sd))
+        c = c + 1
+    }
+    return out
+}
+
+// ─── tests ─────────────────────────────────────────────────────────────
+
+test "loads datasets sizes" {
+    var cs = loadCustomers("datasets/customers.jsonl")
+    var txs = loadTransactions("datasets/transactions.jsonl")
+    assert(cs.size() == 5, "customers 5")
+    assert(txs.size() == 7, "transactions 7")
+}
+
+test "hash join produces 7 rows" {
+    var cs = loadCustomers("datasets/customers.jsonl")
+    var txs = loadTransactions("datasets/transactions.jsonl")
+    var j = hashJoin(txs, cs)
+    assert(j.size() == 7, "joined 7")
+}
+
+test "left join also 7 rows" {
+    var cs = loadCustomers("datasets/customers.jsonl")
+    var txs = loadTransactions("datasets/transactions.jsonl")
+    var j = leftJoin(txs, cs)
+    assert(j.size() == 7, "left 7")
+}
+
+test "distinct cities 3 values" {
+    var cs = loadCustomers("datasets/customers.jsonl")
+    var txs = loadTransactions("datasets/transactions.jsonl")
+    var j = hashJoin(txs, cs)
+    var cities = distinctCities(j)
+    assert(cities.size() == 3, "3 cities got " + cities.size().toString())
+}
+
+test "groupby SP count and sum" {
+    var cs = loadCustomers("datasets/customers.jsonl")
+    var txs = loadTransactions("datasets/transactions.jsonl")
+    var j = hashJoin(txs, cs)
+    var aggs = groupByCity(j)
+    var found = 0
+    var i = 0
+    while (i < aggs.size()) {
+        if (aggs.get(i).city == "SP") {
+            assert(aggs.get(i).count == 4, "SP count 4 got " + aggs.get(i).count.toString())
+            var diff = aggs.get(i).sum - 1416.24
+            if (diff < 0.0) { diff = -diff }
+            assert(diff < 0.01, "SP sum ~1416.24 got " + aggs.get(i).sum.toString())
+            found = 1
+        }
+        i = i + 1
+    }
+    assert(found == 1, "SP agg found")
+}
+
+test "groupby RJ mean" {
+    var cs = loadCustomers("datasets/customers.jsonl")
+    var txs = loadTransactions("datasets/transactions.jsonl")
+    var j = hashJoin(txs, cs)
+    var aggs = groupByCity(j)
+    var i = 0
+    while (i < aggs.size()) {
+        if (aggs.get(i).city == "RJ") {
+            var diff = aggs.get(i).mean - 50.65
+            if (diff < 0.0) { diff = -diff }
+            assert(diff < 0.01, "RJ mean ~50.65 got " + aggs.get(i).mean.toString())
+        }
+        i = i + 1
+    }
+}
+
+test "median odd and even" {
+    var a = listOf<Double>()
+    a.add(3.0); a.add(1.0); a.add(2.0)
+    var m1 = median(a)
+    assert(m1 == 2.0, "median odd 2.0")
+    var b = listOf<Double>()
+    b.add(4.0); b.add(1.0); b.add(3.0); b.add(2.0)
+    var m2 = median(b)
+    var d = m2 - 2.5
+    if (d < 0.0) { d = -d }
+    assert(d < 0.0001, "median even 2.5 got " + m2.toString())
+}

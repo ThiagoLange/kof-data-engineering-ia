@@ -1,0 +1,785 @@
+// modulo-01-fundamentos/04-io-binario/exercise.kof
+//
+// Run with: kof test modulo-01-fundamentos/04-io-binario/exercise.kof
+//
+// Self-contained copy of lab.kof with assertions at the bottom. Covers the
+// KOF1 frame codec (magic header, big-endian u16/u32, hand-packed IEEE-754
+// binary64, length-prefixed UTF-8), the manual RLE codec, and the full
+// encode -> persist -> decode roundtrip over datasets/employees.csv.
+// ─── helpers (inline copies of shared/*.kof) ───────────────────────────
+split(String s, String delim) : List < String > {
+    var out = listOf < String > ()
+    if(delim.length== 0) {
+        out.add(s)
+        return out
+    }
+    var start = 0
+    var n = s.length
+    var i = 0
+    while(i < n) {
+        if(s.charAt(i)== delim.charAt(0)) {
+            out.add(s.substring(start, i))
+            start = i + 1
+        }
+        i = i + 1
+    }
+    out.add(s.substring(start, n))
+    return out
+}
+trim(String s) : String {
+    var n = s.length
+    var start = 0
+    while(start < n) {
+        var c = s.charAt(start)
+        if(c!= 32&& c!= 9&& c!= 10&& c!= 13) {
+            break
+        }
+        start = start + 1
+    }
+    var end = n
+    while(end > start) {
+        var c = s.charAt(end - 1)
+        if(c!= 32&& c!= 9&& c!= 10&& c!= 13) {
+            break
+        }
+        end = end - 1
+    }
+    return s.substring(start, end)
+}
+parseIntStrict(String s) : Int {
+    if(s== null) {
+        throw"parseInt: null input"
+    }
+    var n = s.length
+    if(n== 0) {
+        throw"parseInt: empty input"
+    }
+    var i = 0
+    var sign = 1
+    var c = s.charAt(0)
+    if(c== 45) {
+        sign =- 1;i = 1
+    }
+    else if(c== 43) {
+        i = 1
+    }
+    if(i>= n) {
+        throw"parseInt: sign only"
+    }
+    var acc = 0
+    while(i < n) {
+        var ch = s.charAt(i)
+        if(ch < 48 || ch > 57) {
+            throw"parseInt: invalid digit"
+        }
+        acc = acc * 10 + (ch - 48)
+        i = i + 1
+    }
+    return sign * acc
+}
+parseFloatStrict(String s) : Double {
+    if(s== null) {
+        throw"parseFloat: null input"
+    }
+    var n = s.length
+    if(n== 0) {
+        throw"parseFloat: empty input"
+    }
+    var i = 0
+    var sign = 1.0
+    var c = s.charAt(0)
+    if(c== 45) {
+        sign =- 1.0;i = 1
+    }
+    else if(c== 43) {
+        i = 1
+    }
+    if(i>= n) {
+        throw"parseFloat: sign only"
+    }
+    var intPart = 0.0
+    var sawDigit = 0
+    while(i < n) {
+        var ch = s.charAt(i)
+        if(ch>= 48&& ch<= 57) {
+            intPart = intPart * 10.0 + ch - 48.0
+            sawDigit = 1
+            i = i + 1
+        }
+        else {
+            break
+        }
+    }
+    var base = sign * intPart
+    var fracAcc = 0.0
+    var div = 1.0
+    var hasDot = 0
+    if(i < n) {
+        if(s.charAt(i)== 46) {
+            hasDot = 1
+            i = i + 1
+        }
+    }
+    while(i < n&& hasDot== 1) {
+        var ch = s.charAt(i)
+        if(ch>= 48&& ch<= 57) {
+            fracAcc = fracAcc * 10.0 + ch - 48.0
+            div = div * 10.0
+            i = i + 1
+        }
+        else {
+            break
+        }
+    }
+    if(sawDigit== 0&& hasDot== 0) {
+        throw"parseFloat: no digits"
+    }
+    if(i < n) {
+        throw"parseFloat: trailing garbage"
+    }
+    var frac = fracAcc / div
+    var value = base + frac
+    return value
+}
+parseFloatSafe(String s, Double fallback) : Double {
+    try {
+        return parseFloatStrict(s)
+    }
+    catch(String e) {
+        return fallback
+    }
+}
+// ─── domain ────────────────────────────────────────────────────────────
+record EmpBin(Int id, Double salary, String name)
+csvRowToWire(String line) : EmpBin {
+    var cols = split(line, ",")
+    if(cols.size()!= 5) {
+        throw"csv: column count mismatch (got " + cols.size().toString() + ")"
+    }
+    var id = parseIntStrict(trim(cols.get(0)))
+    var name = trim(cols.get(1))
+    var salary = parseFloatSafe(trim(cols.get(4)), 0.0)
+    return EmpBin(id, salary, name)
+}
+readCsv(String path) : List < EmpBin > {
+    var raw = File(path).readText()
+    if(raw== null) {
+        throw"csv: cannot read file: " + path
+    }
+    var lines = split(raw, "\n")
+    var out = listOf < EmpBin > ()
+    var n = lines.size()
+    if(n== 0) {
+        return out
+    }
+    var i = 1
+    while(i < n) {
+        var line = trim(lines.get(i))
+        if(line.length > 0) {
+            out.add(csvRowToWire(line))
+        }
+        i = i + 1
+    }
+    return out
+}
+record IntRes(Int value, Int next)
+record StrRes(String value, Int next)
+// ─── primitive codecs (big-endian) ─────────────────────────────────────
+encU16BE(List < Int > out, Int v) {
+    if(v < 0 || v > 65535) {
+        throw"encode: u16 out of range: " + v.toString()
+    }
+    out.add((v >> 8) & 255)
+    out.add(v & 255)
+}
+encU32BE(List < Int > out, Int v) {
+    if(v < 0) {
+        throw"encode: negative u32: " + v.toString()
+    }
+    out.add((v >> 24) & 255)
+    out.add((v >> 16) & 255)
+    out.add((v >> 8) & 255)
+    out.add(v & 255)
+}
+decU16BE(List < Int > buf, Int pos) : IntRes {
+    if(pos < 0 || pos + 2 > buf.size()) {
+        throw"decode: u16 out of bounds"
+    }
+    var v = (buf.get(pos) << 8) | buf.get(pos + 1)
+    return IntRes(v, pos + 2)
+}
+decU32BE(List < Int > buf, Int pos) : IntRes {
+    if(pos < 0 || pos + 4 > buf.size()) {
+        throw"decode: u32 out of bounds"
+    }
+    var v = (buf.get(pos) << 24) | (buf.get(pos + 1) << 16) | (buf.get(pos + 2) << 8) | buf.get(pos + 3)
+    return IntRes(v, pos + 4)
+}
+// ─── IEEE-754 binary64 codec ───────────────────────────────────────────
+pow2i(Int e) : Double {
+    var p = 1.0
+    if(e>= 0) {
+        var i = 0
+        while(i < e) {
+            p = p * 2.0
+            i = i + 1
+        }
+    }
+    else {
+        var i = 0
+        var ne =- e
+        while(i < ne) {
+            p = p * 0.5
+            i = i + 1
+        }
+    }
+    return p
+}
+mantFromBytes(Int nib, List < Int > data, Int pos) : Double {
+    var acc = 0.0 + nib
+    var k = 0
+    while(k < 6) {
+        var bj = data.get(pos + k)
+        acc = acc * 256.0 + bj
+        k = k + 1
+    }
+    return acc
+}
+putIeee(Double x, List < Int > out) {
+    if(x!= x) {
+        throw"encode: NaN not supported"
+    }
+    var sign = 0
+    if(x < 0.0) {
+        sign = 1
+    }
+    else {
+        if(1.0 / x < 0.0) {
+            sign = 1
+        }
+    }
+    var mag = x
+    if(sign== 1) {
+        mag =- x
+    }
+    if(mag== 0.0) {
+        var i = 0
+        while(i < 8) {
+            if(i== 0) {
+                out.add(sign * 128)
+            }
+            else {
+                out.add(0)
+            }
+            i = i + 1
+        }
+        return
+    }
+    if(mag * 0.5== mag) {
+        throw"encode: Infinity not supported"
+    }
+    var e = 0
+    var p = 1.0
+    if(mag>= 1.0) {
+        while(mag / p>= 2.0) {
+            p = p * 2.0
+            e = e + 1
+        }
+    }
+    else {
+        while(mag / p < 1.0) {
+            p = p * 0.5
+            e = e - 1
+            if(e <- 1022) {
+                throw"encode: subnormal not supported"
+            }
+        }
+    }
+    var m = mag / p
+    var frac = m - 1.0
+    var biased = e + 1023
+    var b0 = sign * 128 + ((biased >> 4) & 127)
+    var nib = 0
+    var k = 0
+    while(k < 4) {
+        frac = frac * 2.0
+        var bit = 0
+        if(frac>= 1.0) {
+            bit = 1
+            frac = frac - 1.0
+        }
+        nib = nib * 2 + bit
+        k = k + 1
+    }
+    var mb = listOf < Int > ()
+    var cur = 0
+    var nbits = 0
+    while(k < 52) {
+        frac = frac * 2.0
+        var bit = 0
+        if(frac>= 1.0) {
+            bit = 1
+            frac = frac - 1.0
+        }
+        cur = cur * 2 + bit
+        nbits = nbits + 1
+        if(nbits== 8) {
+            mb.add(cur)
+            cur = 0
+            nbits = 0
+        }
+        k = k + 1
+    }
+    var b1 = ((biased & 15) << 4) | nib
+    out.add(b0)
+    out.add(b1)
+    var j = 0
+    while(j < mb.size()) {
+        out.add(mb.get(j))
+        j = j + 1
+    }
+}
+getIeee(List < Int > data, Int pos) : Double {
+    if(pos < 0 || pos + 8 > data.size()) {
+        throw"decode: f64 out of bounds"
+    }
+    var b0 = data.get(pos)
+    var b1 = data.get(pos + 1)
+    var sign = (b0 >> 7) & 1
+    var expBits = ((b0 & 127) << 4) | (b1 >> 4)
+    var x = 0.0
+    if(expBits== 0) {
+        x = 0.0
+    }
+    else {
+        if(expBits== 2047) {
+            throw"decode: non-finite not supported"
+        }
+        var nib = b1 & 15
+        var acc = mantFromBytes(nib, data, pos + 2)
+        var frac = acc / 4503599627370496.0
+        var m = 1.0 + frac
+        var p = pow2i(expBits - 1023)
+        x = m * p
+        if(sign== 1) {
+            x =- x
+        }
+    }
+    return x
+}
+// ─── UTF-8 string codec ────────────────────────────────────────────────
+asciiAlphabet() : String {
+    return" !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~"
+}
+encUtf8(List < Int > out, String s) {
+    var bytes = listOf < Int > ()
+    var i = 0
+    while(i < s.length) {
+        var cp = s.charAt(i)
+        if(cp < 128) {
+            bytes.add(cp)
+        }
+        else if(cp < 2048) {
+            bytes.add(192 | (cp >> 6))
+            bytes.add(128 | (cp & 63))
+        }
+        else if(cp < 65536) {
+            bytes.add(224 | (cp >> 12))
+            bytes.add(128 | ((cp >> 6) & 63))
+            bytes.add(128 | (cp & 63))
+        }
+        else {
+            throw"encode: codepoint beyond BMP (surrogate pairs unsupported)"
+        }
+        i = i + 1
+    }
+    if(bytes.size() > 65535) {
+        throw"encode: utf8 field too long"
+    }
+    encU16BE(out, bytes.size())
+    var j = 0
+    while(j < bytes.size()) {
+        out.add(bytes.get(j))
+        j = j + 1
+    }
+}
+decUtf8(List < Int > buf, Int pos) : StrRes {
+    var len = decU16BE(buf, pos)
+    pos = len.next
+    if(pos + len.value > buf.size()) {
+        throw"decode: truncated utf8 field"
+    }
+    var table = asciiAlphabet()
+    var s = ""
+    var i = 0
+    while(i < len.value) {
+        var lead = buf.get(pos + i)
+        var cp = 0
+        var nbytes = 1
+        if(lead < 128) {
+            cp = lead
+        }
+        else if(lead>= 192&& lead < 224&& i + 1 < len.value) {
+            cp = ((lead & 31) << 6) | (buf.get(pos + i + 1) & 63)
+            nbytes = 2
+        }
+        else if(lead>= 224&& lead < 240&& i + 2 < len.value) {
+            cp = ((lead & 15) << 12) | ((buf.get(pos + i + 1) & 63) << 6) | (buf.get(pos + i + 2) & 63)
+            nbytes = 3
+        }
+        else {
+            throw"decode: malformed utf8 sequence"
+        }
+        i = i + nbytes
+        if(cp < 32 || cp > 126) {
+            throw"decode: non-ascii codepoint " + cp.toString() + " (runtime has no Int->String)"
+        }
+        s = s + table.substring(cp - 32, cp - 31)
+    }
+    return StrRes(s, pos + len.value)
+}
+// ─── KOF1 frame ────────────────────────────────────────────────────────
+encodeFrame(List < EmpBin > rows) : List < Int > {
+    var out = listOf < Int > ()
+    out.add(75)
+    out.add(79)
+    out.add(70)
+    out.add(49)
+    if(rows.size() > 65535) {
+        throw"encode: too many records"
+    }
+    encU16BE(out, rows.size())
+    var i = 0
+    while(i < rows.size()) {
+        var r = rows.get(i)
+        encU32BE(out, r.id)
+        putIeee(r.salary, out)
+        encUtf8(out, r.name)
+        i = i + 1
+    }
+    return out
+}
+decodeFrame(List < Int > buf) : List < EmpBin > {
+    if(buf.size() < 6) {
+        throw"decode: frame too short"
+    }
+    if(buf.get(0)!= 75 || buf.get(1)!= 79 || buf.get(2)!= 70 || buf.get(3)!= 49) {
+        throw"decode: bad magic (not a KOF1 frame)"
+    }
+    var pos = 4
+    var cnt = decU16BE(buf, pos)
+    pos = cnt.next
+    var out = listOf < EmpBin > ()
+    var i = 0
+    while(i < cnt.value) {
+        var id = decU32BE(buf, pos)
+        pos = id.next
+        var sal = getIeee(buf, pos)
+        pos = pos + 8
+        var name = decUtf8(buf, pos)
+        pos = name.next
+        out.add(EmpBin(id.value, sal, name.value))
+        i = i + 1
+    }
+    if(pos!= buf.size()) {
+        throw"decode: trailing bytes after frame"
+    }
+    return out
+}
+// ─── RLE compression ───────────────────────────────────────────────────
+rleEncode(List < Int > bytes) : List < Int > {
+    var out = listOf < Int > ()
+    var n = bytes.size()
+    var i = 0
+    while(i < n) {
+        var v = bytes.get(i)
+        if(v < 0 || v > 255) {
+            throw"rle: byte out of range"
+        }
+        var run = 1
+        while(i + run < n&& run < 255&& bytes.get(i + run)== v) {
+            run = run + 1
+        }
+        out.add(run)
+        out.add(v)
+        i = i + run
+    }
+    return out
+}
+rleDecode(List < Int > packed) : List < Int > {
+    var out = listOf < Int > ()
+    var n = packed.size()
+    if(n%2!= 0) {
+        throw"rle: odd pair count"
+    }
+    var i = 0
+    while(i < n) {
+        var count = packed.get(i)
+        var v = packed.get(i + 1)
+        if(count < 1 || v < 0 || v > 255) {
+            throw"rle: malformed pair"
+        }
+        var j = 0
+        while(j < count) {
+            out.add(v)
+            j = j + 1
+        }
+        i = i + 2
+    }
+    return out
+}
+// ─── tests ─────────────────────────────────────────────────────────────
+test"u16 big-endian roundtrip" {
+    var out = listOf < Int > ()
+    encU16BE(out, 4660)
+    println(out.size().toString())
+    assert(out.size()== 2, "u16 is 2 bytes")
+    assert(out.get(0)== 18&& out.get(1)== 52, "4660 == 0x1234")
+    var r = decU16BE(out, 0)
+    println(r.value.toString())
+    assert(r.value== 4660, "roundtrip value")
+    assert(r.next== 2, "cursor advanced")
+}
+test"u32 big-endian roundtrip" {
+    var out = listOf < Int > ()
+    encU32BE(out, 305419896)
+    assert(out.size()== 4, "u32 is 4 bytes")
+    assert(out.get(0)== 18&& out.get(3)== 120, "0x12345678")
+    var r = decU32BE(out, 0)
+    println(r.value.toString())
+    assert(r.value== 305419896, "roundtrip value")
+    assert(r.next== 4, "cursor advanced")
+}
+test"ieee codec matches platform reference vectors" {
+    // Reference bytes produced by CPython struct.pack(">d", v).
+    var v1 = 5500.50
+    var b1 = listOf < Int > ()
+    putIeee(v1, b1)
+    assert(b1.size()== 8, "binary64 is 8 bytes")
+    assert(b1.get(0)== 64&& b1.get(1)== 181, "5500.5 -> 40 b5")
+    assert(b1.get(2)== 124&& b1.get(3)== 128, "5500.5 -> 7c 80")
+    var v2 =- 3.14
+    var b2 = listOf < Int > ()
+    putIeee(v2, b2)
+    assert(b2.get(0)== 192&& b2.get(1)== 9, "-3.14 -> c0 09")
+    assert(b2.get(7)== 31, "-3.14 -> ...1f")
+    var v3 = 0.5
+    var b3 = listOf < Int > ()
+    putIeee(v3, b3)
+    assert(b3.get(0)== 63&& b3.get(1)== 224, "0.5 -> 3f e0")
+    var v4 = 0.0
+    var b4 = listOf < Int > ()
+    putIeee(v4, b4)
+    var allZero = 1
+    var i = 0
+    while(i < 8) {
+        if(b4.get(i)!= 0) {
+            allZero = 0
+        }
+        i = i + 1
+    }
+    assert(allZero== 1, "+0.0 -> all zero bytes")
+}
+test"ieee roundtrip is bit-exact" {
+    var values = listOf < Double > ()
+    values.add(5500.50)
+    values.add(7800.75)
+    values.add(6200.10)
+    values.add(0.0 - 3.14)
+    values.add(0.5)
+    values.add(0.0000000001)
+    var i = 0
+    while(i < values.size()) {
+        var v = values.get(i)
+        var bytes = listOf < Int > ()
+        putIeee(v, bytes)
+        var back = getIeee(bytes, 0)
+        println(back.toString())
+        assert(back== v, "bit-exact roundtrip for " + v.toString())
+        i = i + 1
+    }
+}
+test"ieee encode throws on NaN" {
+    var nan = 0.0 / 0.0
+    var threw = 0
+    try {
+        var out = listOf < Int > ()
+        putIeee(nan, out)
+        assert(out.size()== 0, "should not reach")
+    }
+    catch(String e) {
+        threw = 1
+    }
+    assert(threw== 1, "NaN must throw")
+}
+test"ieee encode throws on Infinity" {
+    var inf = 1.0 / 0.0
+    var threw = 0
+    try {
+        var out = listOf < Int > ()
+        putIeee(inf, out)
+        assert(out.size()== 0, "should not reach")
+    }
+    catch(String e) {
+        threw = 1
+    }
+    assert(threw== 1, "Infinity must throw")
+}
+test"utf8 ascii roundtrip" {
+    var out = listOf < Int > ()
+    encUtf8(out, "Alice")
+    assert(out.size()== 7, "u16 length + 5 bytes")
+    assert(out.get(0)== 0&& out.get(1)== 5, "length prefix 5")
+    assert(out.get(2)== 65&& out.get(6)== 101, "A..e")
+    var r = decUtf8(out, 0)
+    println(r.value)
+    assert(r.value== "Alice", "roundtrip string")
+    assert(r.next== 7, "cursor after field")
+}
+test"utf8 roundtrips empty string" {
+    var out = listOf < Int > ()
+    encUtf8(out, "")
+    assert(out.size()== 2, "length prefix only")
+    var r = decUtf8(out, 0)
+    assert(r.value== "", "empty string")
+}
+test"utf8 encodes two-byte sequence; decode documents runtime gap" {
+    // 'e acute' (codepoint 233) encodes as the 2-byte UTF-8 C3 A9.
+    var out = listOf < Int > ()
+    encUtf8(out, "é")
+    assert(out.size()== 4, "u16 length + 2 bytes")
+    assert(out.get(2)== 195&& out.get(3)== 169, "C3 A9")
+    // decode side throws: the runtime has no Int->String conversion for
+    // non-ASCII codepoints (see README gaps).
+    var threw = 0
+    try {
+        var r = decUtf8(out, 0)
+        assert(r.value== "", "should not reach")
+    }
+    catch(String e) {
+        threw = 1
+    }
+    assert(threw== 1, "non-ascii decode must throw (documented gap)")
+}
+test"frame roundtrip from dataset" {
+    var rows = readCsv("datasets/employees.csv")
+    assert(rows.size()== 6, "expected 6 rows")
+    var frame = encodeFrame(rows)
+    var restored = decodeFrame(frame)
+    assert(restored.size()== 6, "row count survives")
+    var i = 0
+    while(i < 6) {
+        var a = rows.get(i)
+        var b = restored.get(i)
+        assert(a.id== b.id, "id row " + i.toString())
+        assert(a.salary== b.salary, "salary row " + i.toString())
+        assert(a.name== b.name, "name row " + i.toString())
+        i = i + 1
+    }
+    var first = restored.get(0)
+    assert(first.id== 1, "row0 id")
+    assert(first.name== "Alice", "row0 name")
+    var last = restored.get(5)
+    assert(last.id== 6, "row5 id")
+    assert(last.name== "", "row5 empty name")
+    var eve = restored.get(4)
+    println(eve.salary.toString())
+    assert(eve.salary== 0.0, "absent salary is the 0.0 sentinel")
+}
+test"frame rejects bad magic" {
+    var buf = listOf < Int > ()
+    buf.add(66)
+    buf.add(79)
+    buf.add(70)
+    buf.add(49)
+    buf.add(0)
+    buf.add(0)
+    var threw = 0
+    try {
+        var r = decodeFrame(buf)
+        assert(r.size()== 0, "should not reach")
+    }
+    catch(String e) {
+        threw = 1
+    }
+    assert(threw== 1, "bad magic must throw")
+}
+test"rle roundtrip on real frame bytes" {
+    var rows = readCsv("datasets/employees.csv")
+    var frame = encodeFrame(rows)
+    var packed = rleEncode(frame)
+    var restored = rleDecode(packed)
+    assert(restored.size()== frame.size(), "length survives roundtrip")
+    var i = 0
+    while(i < frame.size()) {
+        assert(restored.get(i)== frame.get(i), "byte " + i.toString())
+        i = i + 1
+    }
+}
+test"rle compresses run-heavy data" {
+    var page = listOf < Int > ()
+    var z = 0
+    while(z < 200) {
+        page.add(0)
+        z = z + 1
+    }
+    page.add(7)
+    var packed = rleEncode(page)
+    println(packed.size().toString())
+    assert(packed.size()== 4, "two pairs: (200,0) (1,7)")
+    assert(packed.get(0)== 200&& packed.get(1)== 0, "run of 200 zeros")
+    assert(packed.get(2)== 1&& packed.get(3)== 7, "single 7")
+    var back = rleDecode(packed)
+    assert(back.size()== 201, "restored length")
+    assert(back.get(200)== 7, "last byte value")
+}
+test"rle expands incompressible data" {
+    var alt = listOf < Int > ()
+    alt.add(1)
+    alt.add(2)
+    alt.add(1)
+    alt.add(2)
+    var packed = rleEncode(alt)
+    println(packed.size().toString())
+    assert(packed.size()== 8, "no runs -> 2 bytes per byte (count,value)")
+}
+test"rle run length is capped at 255" {
+    var run = listOf < Int > ()
+    var i = 0
+    while(i < 300) {
+        run.add(9)
+        i = i + 1
+    }
+    var packed = rleEncode(run)
+    assert(packed.size()== 4, "300 nines -> (255,9) (45,9)")
+    assert(packed.get(0)== 255&& packed.get(2)== 45, "cap split")
+    var back = rleDecode(packed)
+    assert(back.size()== 300, "restored length")
+}
+test"rle rejects malformed input" {
+    var odd = listOf < Int > ()
+    odd.add(3)
+    odd.add(65)
+    odd.add(1)
+    var threw = 0
+    try {
+        var r = rleDecode(odd)
+        assert(r.size()== 0, "should not reach")
+    }
+    catch(String e) {
+        threw = 1
+    }
+    assert(threw== 1, "odd pair count must throw")
+    var zero = listOf < Int > ()
+    zero.add(0)
+    zero.add(65)
+    threw = 0
+    try {
+        var r2 = rleDecode(zero)
+        assert(r2.size()== 0, "should not reach")
+    }
+    catch(String e) {
+        threw = 1
+    }
+    assert(threw== 1, "zero count must throw")
+}

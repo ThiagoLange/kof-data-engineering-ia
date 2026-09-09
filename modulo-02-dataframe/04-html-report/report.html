@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<title>Kof Data Report</title>
+<style>body{font-family:sans-serif;margin:24px} table{border-collapse:collapse} th,td{border:1px solid #999;padding:6px 10px} th{background:#eee}</style>
+</head>
+<body>
+<h1>Transaction Report by City</h1>
+<table>
+<thead><tr><th>City</th><th>Count</th><th>Total</th><th>Mean</th></tr></thead>
+<tbody>
+<tr><td>SP</td><td>4</td><td>1416.24</td><td>354.06</td></tr>
+<tr><td>RJ</td><td>2</td><td>101.3</td><td>50.65</td></tr>
+<tr><td>MG</td><td>1</td><td>760.0</td><td>760.0</td></tr>
+</tbody>
+</table>
+<h2>Totals (Canvas)</h2>
+<canvas id="chart" width="500" height="300" style="border:1px solid #ccc"></canvas>
+<script>
+var data = [{city:"SP",total:1416.24},{city:"RJ",total:101.3},{city:"MG",total:760.0}];
+var c = document.getElementById('chart');
+var ctx = c.getContext('2d');
+var maxV = 0; for(var i=0;i<data.length;i++){ if(data[i].total>maxV) maxV=data[i].total; }
+var pad=40; var w=c.width, h=c.height;
+var slot=(w-2*pad)/data.length; var barW=slot*0.6;
+ctx.strokeStyle='#000'; ctx.beginPath(); ctx.moveTo(pad,h-pad); ctx.lineTo(w-pad,h-pad); ctx.stroke();
+ctx.beginPath(); ctx.moveTo(pad,pad); ctx.lineTo(pad,h-pad); ctx.stroke();
+for(var i=0;i<data.length;i++){
+  var bh=(data[i].total/maxV)*(h-2*pad);
+  var x=pad+i*slot+slot*0.2; var y=h-pad-bh;
+  ctx.fillStyle='#377eb8'; ctx.fillRect(x,y,barW,bh);
+  ctx.fillStyle='#000'; ctx.font='11px sans-serif';
+  ctx.fillText(data[i].city, x+barW/2-10, h-15);
+  ctx.fillText(String(data[i].total.toFixed(1)), x, y-4);
+}
+</script>
+</body>
+</html>

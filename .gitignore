@@ -1,0 +1,26 @@
+# Kof
+*.class
+*.jar
+target/
+dist/
+build/
+out/
+# Lakehouse artifacts (gerados por kof run)
+modulo-08-data/01-lakehouse/lake*.jsonl
+modulo-08-data/01-lakehouse/watermark.csv
+modulo-08-data/02-quality/report.html
+modulo-08-data/04-feature-store/features.jsonl
+modulo-04-deep/05-registry/registry.jsonl
+modulo-07-integracao/01-pipeline-batch/report.html
+modulo-07-integracao/02-rag-completo/store.jsonl
+# Web charts (gerados, mas mantidos como exemplo)
+# Descomente para ignorar SVGs gerados:
+# modulo-02-dataframe/05-web-charts/*.svg
+# modulo-02-dataframe/05-web-charts/*.html
+# OS
+.DS_Store
+Thumbs.db
+*~
+*.tmp
+*.log
+test.bin

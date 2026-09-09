@@ -1,0 +1,311 @@
+// modulo-04-deep/02-autograd/lab.kof
+//
+// Computational graph + manual Autograd: scalar Value nodes with
+// forward ops (add/mul/relu/sigmoid) and recursive backward() that
+// propagates gradients via chain rule. Chain-rule correctness is
+// verified against finite-difference numerical gradient.
+//
+// Pattern: class fields are final in 0.1.3-beta, so grad is stored
+// as List<Double> box (mutated via set), exactly like the mutable
+// counter in Lab 6.2 FakeLLM.
+//
+// Source: shared/math.kof
+// Target: JVM (kof run; default target)
+
+// ─── math helpers ────────────────────────────────────────────────────
+
+expApprox(Double x): Double {
+    // Taylor series exp(x) for |x| < 5 (enough for sigmoid demo).
+    // 30 terms converges < 1e-9 in this range.
+    var term = 1.0
+    var sum = 1.0
+    var i = 1
+    while (i < 30) {
+        term = term * x / (1.0 * i)
+        sum = sum + term
+        i = i + 1
+    }
+    return sum
+}
+
+sigmoidFn(Double x): Double {
+    var e = expApprox(-x)
+    return 1.0 / (1.0 + e)
+}
+
+// ─── Value node ──────────────────────────────────────────────────────
+
+class Value(Double data, List<Double> gradBox, String op, List<Value> prev) {
+    getData(): Double { return data }
+    getGrad(): Double { return gradBox.get(0) }
+    getOp(): String { return op }
+
+    // addGrad(delta): grad += delta (mutation via box)
+    addGrad(Double delta): Int {
+        var cur = gradBox.get(0)
+        var nxt = cur + delta
+        gradBox.set(0, nxt)
+        return 0
+    }
+
+    // zeroGrad: reset to 0
+    zeroGrad(): Int {
+        gradBox.set(0, 0.0)
+        return 0
+    }
+}
+
+// makeValue: leaf node (no op, no parents)
+makeValue(Double v): Value {
+    var box = listOf<Double>()
+    box.add(0.0)
+    var empty = listOf<Value>()
+    return Value(v, box, "", empty)
+}
+
+// valAdd: c = a + b
+valAdd(Value a, Value b): Value {
+    var d = a.getData() + b.getData()
+    var box = listOf<Double>()
+    box.add(0.0)
+    var p = listOf<Value>()
+    p.add(a)
+    p.add(b)
+    return Value(d, box, "add", p)
+}
+
+// valMul: c = a * b
+valMul(Value a, Value b): Value {
+    var d = a.getData() * b.getData()
+    var box = listOf<Double>()
+    box.add(0.0)
+    var p = listOf<Value>()
+    p.add(a)
+    p.add(b)
+    return Value(d, box, "mul", p)
+}
+
+// valRelu: y = max(0, x)
+valRelu(Value a): Value {
+    var d = a.getData()
+    if (d < 0.0) { d = 0.0 }
+    var box = listOf<Double>()
+    box.add(0.0)
+    var p = listOf<Value>()
+    p.add(a)
+    return Value(d, box, "relu", p)
+}
+
+// valSigmoid: y = 1/(1+exp(-x))
+valSigmoid(Value a): Value {
+    var d = sigmoidFn(a.getData())
+    var box = listOf<Double>()
+    box.add(0.0)
+    var p = listOf<Value>()
+    p.add(a)
+    return Value(d, box, "sigmoid", p)
+}
+
+// valNeg: y = -x (implemented as mul by -1 constant leaf)
+valNeg(Value a): Value {
+    var minus = makeValue(-1.0)
+    return valMul(a, minus)
+}
+
+// valSub: a - b = a + (-b)
+valSub(Value a, Value b): Value {
+    var nb = valNeg(b)
+    return valAdd(a, nb)
+}
+
+// backward: recursive chain-rule propagation. Call with grad=1.0 on the loss.
+backward(Value v, Double grad): Int {
+    v.addGrad(grad)
+    var op = v.getOp()
+    if (op == "") {
+        return 0
+    }
+    if (op == "add") {
+        var a = v.prev.get(0)
+        var b = v.prev.get(1)
+        backward(a, grad)
+        backward(b, grad)
+        return 0
+    }
+    if (op == "mul") {
+        var a = v.prev.get(0)
+        var b = v.prev.get(1)
+        var ga = b.getData() * grad
+        var gb = a.getData() * grad
+        backward(a, ga)
+        backward(b, gb)
+        return 0
+    }
+    if (op == "relu") {
+        var a = v.prev.get(0)
+        var g = 0.0
+        if (v.getData() > 0.0) { g = grad }
+        backward(a, g)
+        return 0
+    }
+    if (op == "sigmoid") {
+        var a = v.prev.get(0)
+        var d = v.getData()
+        var local = d * (1.0 - d)
+        var g = local * grad
+        backward(a, g)
+        return 0
+    }
+    throw "autograd: unknown op " + op
+}
+
+// zeroGradTree: recursively zero all grads in graph
+zeroGradTree(Value v): Int {
+    v.zeroGrad()
+    var j = 0
+    while (j < v.prev.size()) {
+        zeroGradTree(v.prev.get(j))
+        j = j + 1
+    }
+    return 0
+}
+
+// numericalGrad: finite-difference gradient for verification (central difference)
+numericalGrad(Value target, Value leaf, Double eps): Double {
+    var orig = leaf.getData()
+    // We cannot re-evaluate the graph without rebuilding; caller provides a
+    // closure-style rebuild function. Instead, this helper just shows the
+    // formula: (f(x+eps)-f(x-eps))/(2*eps). For the demo we rebuild manually.
+    // This stub exists to document the pattern and is not called generically.
+    return 0.0
+}
+
+// ─── demo ──────────────────────────────────────────────────────────────
+
+main() {
+    // Build graph: d = a*b + c, loss = d*d
+    // a=2.0, b=3.0, c=10.0  => d=16.0, loss=256.0
+    // Gradients: dL/dd = 32, dL/da = dL/dd * b = 96, dL/db = 64, dL/dc = 32
+    var a = makeValue(2.0)
+    var b = makeValue(3.0)
+    var c = makeValue(10.0)
+    var ab = valMul(a, b)
+    var d = valAdd(ab, c)
+    var loss = valMul(d, d)
+    println("forward: a=" + a.getData().toString() + " b=" + b.getData().toString() + " c=" + c.getData().toString())
+    println("d = a*b + c = " + d.getData().toString())
+    println("loss = d*d = " + loss.getData().toString())
+
+    backward(loss, 1.0)
+    println("grads: dL/da=" + a.getGrad().toString() + " dL/db=" + b.getGrad().toString() + " dL/dc=" + c.getGrad().toString() + " dL/dd=" + d.getGrad().toString() + " dL/dLoss=" + loss.getGrad().toString())
+
+    // Verify via numerical gradient for a (rebuild graph with a+eps and a-eps)
+    var eps = 0.0001
+    var aPlus = makeValue(2.0 + eps)
+    var b2 = makeValue(3.0)
+    var c2 = makeValue(10.0)
+    var lossPlus = valMul(valAdd(valMul(aPlus, b2), c2), valAdd(valMul(aPlus, b2), c2))
+    var fp = lossPlus.getData()
+    var aMinus = makeValue(2.0 - eps)
+    var lossMinus = valMul(valAdd(valMul(aMinus, b2), c2), valAdd(valMul(aMinus, b2), c2))
+    // Note: b2/c2 reused but data is constant; graph rebuilt for a's perturbation
+    var fm = lossMinus.getData()
+    var numGradA = (fp - fm) / (2.0 * eps)
+    println("numerical dL/da ~ " + numGradA.toString() + " (autograd " + a.getGrad().toString() + ")")
+
+    // Second demo: relu + sigmoid chain
+    var x = makeValue(-1.5)
+    var r = valRelu(x)
+    var s = valSigmoid(r)
+    println("relu(-1.5)=" + r.getData().toString() + " sigmoid(relu)=" + s.getData().toString())
+    // reset and backward through sigmoid->relu
+    zeroGradTree(s)
+    backward(s, 1.0)
+    println("grad sigmoid->relu: dL/dx=" + x.getGrad().toString() + " (expected 0.0 because relu saturates at 0)")
+
+    var x2 = makeValue(2.0)
+    var r2 = valRelu(x2)
+    var s2 = valSigmoid(r2)
+    println("relu(2.0)=" + r2.getData().toString() + " sigmoid=" + s2.getData().toString())
+    zeroGradTree(s2)
+    backward(s2, 1.0)
+    println("grad sigmoid->relu(2.0): dL/dx=" + x2.getGrad().toString())
+}
+// ─── tests ─────────────────────────────────────────────────────────
+
+test "forward mul+add and loss" {
+    var a = makeValue(2.0)
+    var b = makeValue(3.0)
+    var c = makeValue(10.0)
+    var ab = valMul(a,b)
+    var d = valAdd(ab,c)
+    var loss = valMul(d,d)
+    var diff = loss.getData() - 256.0
+    if (diff < 0.0) { diff = -diff }
+    assert(diff < 0.0001, "loss 256 got " + loss.getData().toString())
+    assert(d.getData() == 16.0, "d 16")
+}
+
+test "autograd gradients chain rule" {
+    var a = makeValue(2.0)
+    var b = makeValue(3.0)
+    var c = makeValue(10.0)
+    var d = valAdd(valMul(a,b), c)
+    var loss = valMul(d,d)
+    backward(loss, 1.0)
+    var da = a.getGrad() - 96.0
+    if (da < 0.0) { da = -da }
+    assert(da < 0.0001, "dL/da 96 got " + a.getGrad().toString())
+    var db = b.getGrad() - 64.0
+    if (db < 0.0) { db = -db }
+    assert(db < 0.0001, "dL/db 64 got " + b.getGrad().toString())
+    var dc = c.getGrad() - 32.0
+    if (dc < 0.0) { dc = -dc }
+    assert(dc < 0.0001, "dL/dc 32 got " + c.getGrad().toString())
+}
+
+test "relu kills negative gradient" {
+    var x = makeValue(-1.5)
+    var r = valRelu(x)
+    var s = valSigmoid(r)
+    zeroGradTree(s)
+    backward(s, 1.0)
+    assert(x.getGrad() == 0.0, "relu negative grad 0 got " + x.getGrad().toString())
+}
+
+test "relu passes positive gradient" {
+    var x = makeValue(2.0)
+    var r = valRelu(x)
+    var s = valSigmoid(r)
+    zeroGradTree(s)
+    backward(s, 1.0)
+    assert(x.getGrad() > 0.0, "relu positive grad >0 got " + x.getGrad().toString())
+    // sigmoid derivative at 2.0 is ~0.105
+    var d = x.getGrad() - 0.104993
+    if (d < 0.0) { d = -d }
+    assert(d < 0.001, "relu(2) sigmoid grad ~0.105 got " + x.getGrad().toString())
+}
+
+test "sigmoid forward in (0,1)" {
+    var v = makeValue(0.0)
+    var s = valSigmoid(v)
+    var d = s.getData() - 0.5
+    if (d < 0.0) { d = -d }
+    assert(d < 0.001, "sigmoid(0)=0.5 got " + s.getData().toString())
+}
+
+test "numerical vs autograd agreement" {
+    var eps = 0.0001
+    var aPlus = makeValue(2.0 + eps)
+    var b2 = makeValue(3.0)
+    var c2 = makeValue(10.0)
+    var lossPlus = valMul(valAdd(valMul(aPlus,b2),c2), valAdd(valMul(aPlus,b2),c2))
+    var fp = lossPlus.getData()
+    var aMinus = makeValue(2.0 - eps)
+    var lossMinus = valMul(valAdd(valMul(aMinus,b2),c2), valAdd(valMul(aMinus,b2),c2))
+    var fm = lossMinus.getData()
+    var numGrad = (fp - fm) / (2.0 * eps)
+    var diff = numGrad - 96.0
+    if (diff < 0.0) { diff = -diff }
+    assert(diff < 0.01, "numerical grad ~96 got " + numGrad.toString())
+}

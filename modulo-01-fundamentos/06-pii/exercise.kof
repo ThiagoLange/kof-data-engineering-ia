@@ -1,0 +1,33 @@
+// modulo-01-fundamentos/06-pii/lab.kof
+// PII + secrets + rateLimit (simula kof.security).
+// Target: JVM 0.3.2 compact.
+split(String s, String delim): List<String> { var out=listOf<String>(); var start=0; var n=s.length; var i=0; while(i<n){ if(s.charAt(i)==delim.charAt(0)){ out.add(s.substring(start,i)); start=i+1 } i=i+1 } out.add(s.substring(start,n)); return out }
+trim(String s): String { var n=s.length; var start=0; while(start<n){ var c=s.charAt(start); if(c!=32&&c!=9&&c!=10&&c!=13){break} start=start+1 } var end=n; while(end>start){ var c=s.charAt(end-1); if(c!=32&&c!=9&&c!=10&&c!=13){break} end=end-1 } return s.substring(start,end) }
+indexOf(String s, String needle): Int { if(needle.length==0){return 0} var n=s.length; var m=needle.length; if(m>n){return -1} var limit=n-m; var i=0; while(i<=limit){ var match=1; var j=0; while(j<m){ if(s.charAt(i+j)!=needle.charAt(j)){match=0; j=m} else{j=j+1} } if(match==1){return i} i=i+1 } return -1 }
+record User(String name, String email, String ssn)
+maskEmail(String email): String { var at=indexOf(email,"@"); if(at==-1){return "***"} var local=email.substring(0,at); var domain=email.substring(at,email.length); var masked=""; var i=0; while(i<local.length){ masked=masked+"*"; i=i+1 } return masked+domain }
+maskSsn(String ssn): String { if(ssn.length<4){return "***"} return "***-**-"+ssn.substring(ssn.length-4,ssn.length) }
+getSecret(String key, String fallback): String { var v=secrets.get(key, fallback); return v }
+// Simple rateLimit: allow 2 calls per window (simulated via counter)
+class RateLimiter(List<Int> countBox, Int limit) {
+    allow(): Int { var c=countBox.get(0); if(c>=limit){ return 0 } countBox.set(0, c+1); return 1 }
+    reset(): Int { countBox.set(0,0); return 0 }
+}
+makeLimiter(Int limit): RateLimiter { var b=listOf<Int>(); b.add(0); return RateLimiter(b,limit) }
+main() {
+    var apiKey=getSecret("API_KEY","fallback-key-123")
+    println("apiKey (masked): "+apiKey.substring(0,4)+"***")
+    log.info("secrets.get API_KEY ok")
+    var user=User("Alice","alice@example.com","123-45-6789")
+    println("original: "+user.email+" "+user.ssn)
+    println("masked email: "+maskEmail(user.email))
+    println("masked ssn: "+maskSsn(user.ssn))
+    log.info("pii masked for "+user.name)
+    var limiter=makeLimiter(2)
+    var i=0; while(i<3){ var ok=limiter.allow(); if(ok==1){ println("request "+i.toString()+" allowed"); log.info("rateLimit allow "+i.toString()) } else{ println("request "+i.toString()+" rate limited"); log.error("rateLimit blocked "+i.toString()) } i=i+1 }
+}
+
+test "maskEmail" { var m=maskEmail("alice@example.com"); assert(m.contains("@"),"@"); assert(m.substring(0,1)=="*","masked") }
+test "maskSsn" { var m=maskSsn("123-45-6789"); assert(m.contains("6789"),"last4"); assert(m.substring(0,3)=="***","masked") }
+test "rateLimiter allows 2 then blocks" { var r=makeLimiter(2); assert(r.allow()==1,"1"); assert(r.allow()==1,"2"); assert(r.allow()==0,"3 blocked") }
+test "getSecret fallback" { var v=getSecret("NONEXISTENT_KEY_FOR_TEST","fallback"); assert(v=="fallback","fallback") }

@@ -1,0 +1,667 @@
+// modulo-01-fundamentos/04-io-binario/lab.kof
+//
+// Binary I/O and data compression. Employees from datasets/employees.csv are
+// serialized into a custom binary frame — magic header + length-prefixed
+// records — persisted with File.writeBytes()/readBytes() (Int[] 0-255), and
+// compressed with a manual Run-Length Encoding (RLE) whose ratio is measured.
+//
+// Wire format ("KOF1"), all multi-byte fields big-endian:
+//   [0..3]  magic bytes 'K' 'O' 'F' '1'           (75 79 70 49)
+//   [4..5]  u16 record count
+//   per record:
+//     u32   id       (two's complement, non-negative values only)
+//     f64   salary   (IEEE-754 binary64, bit-packed by hand — see putIeee)
+//     u16   nameByteLen + nameByteLen UTF-8 bytes (length-prefixed string)
+//
+// Design notes:
+//   - Kof 0.1.3-beta has no ByteBuffer type and no Double bit-cast, so the
+//     buffer is a plain List<Int> (values 0..255) and IEEE-754 is done by
+//     pure arithmetic (frexp-style decomposition). Every step is exact for
+//     normal numbers, so encode/decode round-trips are bit-exact.
+//   - Absent salary (empty CSV cell) is encoded as the 0.0 sentinel, the
+//     same convention documented in Lab 1.1.
+//   - RLE is (count, value) pairs with count capped at 255 — the run stage
+//     of real codecs (gzip/DEFLATE) minus the entropy-coding stage.
+//
+// Source: shared/strutils.kof, shared/numberparse.kof
+// Target: JVM (kof run; default target)
+// ─── helpers (inline copies of shared/*.kof) ───────────────────────────
+// split(s, delim): single-char delimiter; preserves empty fields.
+split(String s, String delim) : List < String > {
+    var out = listOf < String > ()
+    if(delim.length== 0) {
+        out.add(s)
+        return out
+    }
+    var start = 0
+    var n = s.length
+    var i = 0
+    while(i < n) {
+        if(s.charAt(i)== delim.charAt(0)) {
+            out.add(s.substring(start, i))
+            start = i + 1
+        }
+        i = i + 1
+    }
+    out.add(s.substring(start, n))
+    return out
+}
+// trim ASCII whitespace.
+trim(String s) : String {
+    var n = s.length
+    var start = 0
+    while(start < n) {
+        var c = s.charAt(start)
+        if(c!= 32&& c!= 9&& c!= 10&& c!= 13) {
+            break
+        }
+        start = start + 1
+    }
+    var end = n
+    while(end > start) {
+        var c = s.charAt(end - 1)
+        if(c!= 32&& c!= 9&& c!= 10&& c!= 13) {
+            break
+        }
+        end = end - 1
+    }
+    return s.substring(start, end)
+}
+parseIntStrict(String s) : Int {
+    if(s== null) {
+        throw"parseInt: null input"
+    }
+    var n = s.length
+    if(n== 0) {
+        throw"parseInt: empty input"
+    }
+    var i = 0
+    var sign = 1
+    var c = s.charAt(0)
+    if(c== 45) {
+        sign =- 1;i = 1
+    }
+    else if(c== 43) {
+        i = 1
+    }
+    if(i>= n) {
+        throw"parseInt: sign only"
+    }
+    var acc = 0
+    while(i < n) {
+        var ch = s.charAt(i)
+        if(ch < 48 || ch > 57) {
+            throw"parseInt: invalid digit"
+        }
+        acc = acc * 10 + (ch - 48)
+        i = i + 1
+    }
+    return sign * acc
+}
+parseFloatStrict(String s) : Double {
+    if(s== null) {
+        throw"parseFloat: null input"
+    }
+    var n = s.length
+    if(n== 0) {
+        throw"parseFloat: empty input"
+    }
+    var i = 0
+    var sign = 1.0
+    var c = s.charAt(0)
+    if(c== 45) {
+        sign =- 1.0;i = 1
+    }
+    else if(c== 43) {
+        i = 1
+    }
+    if(i>= n) {
+        throw"parseFloat: sign only"
+    }
+    var intPart = 0.0
+    var sawDigit = 0
+    while(i < n) {
+        var ch = s.charAt(i)
+        if(ch>= 48&& ch<= 57) {
+            intPart = intPart * 10.0 + ch - 48.0
+            sawDigit = 1
+            i = i + 1
+        }
+        else {
+            break
+        }
+    }
+    var base = sign * intPart
+    var fracAcc = 0.0
+    var div = 1.0
+    var hasDot = 0
+    if(i < n) {
+        if(s.charAt(i)== 46) {
+            hasDot = 1
+            i = i + 1
+        }
+    }
+    while(i < n&& hasDot== 1) {
+        var ch = s.charAt(i)
+        if(ch>= 48&& ch<= 57) {
+            fracAcc = fracAcc * 10.0 + ch - 48.0
+            div = div * 10.0
+            i = i + 1
+        }
+        else {
+            break
+        }
+    }
+    if(sawDigit== 0&& hasDot== 0) {
+        throw"parseFloat: no digits"
+    }
+    if(i < n) {
+        throw"parseFloat: trailing garbage"
+    }
+    var frac = fracAcc / div
+    var value = base + frac
+    return value
+}
+parseIntSafe(String s, Int fallback) : Int {
+    try {
+        return parseIntStrict(s)
+    }
+    catch(String e) {
+        return fallback
+    }
+}
+parseFloatSafe(String s, Double fallback) : Double {
+    try {
+        return parseFloatStrict(s)
+    }
+    catch(String e) {
+        return fallback
+    }
+}
+// ─── domain ────────────────────────────────────────────────────────────
+// Wire record: exactly the fields that travel in the KOF1 frame.
+// salary uses the 0.0 sentinel for absent CSV cells (documented);
+// name may be empty (length-prefixed, so no ambiguity on the wire).
+record EmpBin(Int id, Double salary, String name)
+// csvRowToWire(line): maps a CSV data row to the wire record. Column
+// order follows datasets/employees.csv: id,name,age,city,salary. age/city
+// are not part of the binary format and are dropped here.
+csvRowToWire(String line) : EmpBin {
+    var cols = split(line, ",")
+    if(cols.size()!= 5) {
+        throw"csv: column count mismatch (got " + cols.size().toString() + ")"
+    }
+    var id = parseIntStrict(trim(cols.get(0)))
+    var name = trim(cols.get(1))
+    var salary = parseFloatSafe(trim(cols.get(4)), 0.0)
+    return EmpBin(id, salary, name)
+}
+readCsv(String path) : List < EmpBin > {
+    var raw = File(path).readText()
+    if(raw== null) {
+        throw"csv: cannot read file: " + path
+    }
+    var lines = split(raw, "\n")
+    var out = listOf < EmpBin > ()
+    var n = lines.size()
+    if(n== 0) {
+        return out
+    }
+    // lines.get(0) is the header; data starts at index 1
+    var i = 1
+    while(i < n) {
+        var line = trim(lines.get(i))
+        if(line.length > 0) {
+            out.add(csvRowToWire(line))
+        }
+        i = i + 1
+    }
+    return out
+}
+// ─── decode cursors ────────────────────────────────────────────────────
+// Decode functions are pure: they take an explicit cursor and return the
+// value plus the next read position (no hidden state, no null returns).
+record IntRes(Int value, Int next)
+record DblRes(Double value, Int next)
+record StrRes(String value, Int next)
+// ─── primitive codecs (big-endian) ─────────────────────────────────────
+encU16BE(List < Int > out, Int v) {
+    if(v < 0 || v > 65535) {
+        throw"encode: u16 out of range: " + v.toString()
+    }
+    out.add((v >> 8) & 255)
+    out.add(v & 255)
+}
+encU32BE(List < Int > out, Int v) {
+    if(v < 0) {
+        throw"encode: negative u32: " + v.toString()
+    }
+    out.add((v >> 24) & 255)
+    out.add((v >> 16) & 255)
+    out.add((v >> 8) & 255)
+    out.add(v & 255)
+}
+decU16BE(List < Int > buf, Int pos) : IntRes {
+    if(pos < 0 || pos + 2 > buf.size()) {
+        throw"decode: u16 out of bounds"
+    }
+    var v = (buf.get(pos) << 8) | buf.get(pos + 1)
+    return IntRes(v, pos + 2)
+}
+decU32BE(List < Int > buf, Int pos) : IntRes {
+    if(pos < 0 || pos + 4 > buf.size()) {
+        throw"decode: u32 out of bounds"
+    }
+    var v = (buf.get(pos) << 24) | (buf.get(pos + 1) << 16) | (buf.get(pos + 2) << 8) | buf.get(pos + 3)
+    return IntRes(v, pos + 4)
+}
+// ─── IEEE-754 binary64 codec (bit manipulation, no stdlib bit-cast) ────
+// pow2i(e): exact 2^e for e in [-1074, 1023] reachable via halving loop.
+pow2i(Int e) : Double {
+    var p = 1.0
+    if(e>= 0) {
+        var i = 0
+        while(i < e) {
+            p = p * 2.0
+            i = i + 1
+        }
+    }
+    else {
+        var i = 0
+        var ne =- e
+        while(i < ne) {
+            p = p * 0.5
+            i = i + 1
+        }
+    }
+    return p
+}
+// mantFromBytes(nib, data, pos): mantissa as an exact integer-valued
+// Double (< 2^52). nib carries bits [51:48] (the HIGH nibble), followed
+// by the six remaining big-endian bytes (bits [47:0]).
+mantFromBytes(Int nib, List < Int > data, Int pos) : Double {
+    var acc = 0.0 + nib
+    var k = 0
+    while(k < 6) {
+        var bj = data.get(pos + k)
+        acc = acc * 256.0 + bj
+        k = k + 1
+    }
+    return acc
+}
+// putIeee(x, out): appends x as 8 big-endian IEEE-754 binary64 bytes.
+// Pure-arithmetic frexp decomposition: every operation is exact for
+// normal numbers, so the encoding is bit-identical to the platform's
+// native double layout. Throws on NaN/Infinity/subnormal (documented).
+putIeee(Double x, List < Int > out) {
+    if(x!= x) {
+        throw"encode: NaN not supported"
+    }
+    var sign = 0
+    if(x < 0.0) {
+        sign = 1
+    }
+    else {
+        // catches negative zero: 1.0 / -0.0 == -Infinity
+        if(1.0 / x < 0.0) {
+            sign = 1
+        }
+    }
+    var mag = x
+    if(sign== 1) {
+        mag =- x
+    }
+    if(mag== 0.0) {
+        var i = 0
+        while(i < 8) {
+            if(i== 0) {
+                out.add(sign * 128)
+            }
+            else {
+                out.add(0)
+            }
+            i = i + 1
+        }
+        return
+    }
+    if(mag * 0.5== mag) {
+        throw"encode: Infinity not supported"
+    }
+    // frexp: mag = m * 2^e with m in [1, 2); all steps exact
+    var e = 0
+    var p = 1.0
+    if(mag>= 1.0) {
+        while(mag / p>= 2.0) {
+            p = p * 2.0
+            e = e + 1
+        }
+    }
+    else {
+        while(mag / p < 1.0) {
+            p = p * 0.5
+            e = e - 1
+            if(e <- 1022) {
+                throw"encode: subnormal not supported"
+            }
+        }
+    }
+    var m = mag / p
+    var frac = m - 1.0
+    var biased = e + 1023
+    // byte0 = sign | exponent[10:4]
+    var b0 = sign * 128 + ((biased >> 4) & 127)
+    // mantissa: first 4 fraction bits are bits [51:48] (high nibble)
+    var nib = 0
+    var k = 0
+    while(k < 4) {
+        frac = frac * 2.0
+        var bit = 0
+        if(frac>= 1.0) {
+            bit = 1
+            frac = frac - 1.0
+        }
+        nib = nib * 2 + bit
+        k = k + 1
+    }
+    // remaining 48 fraction bits as six big-endian bytes
+    var mb = listOf < Int > ()
+    var cur = 0
+    var nbits = 0
+    while(k < 52) {
+        frac = frac * 2.0
+        var bit = 0
+        if(frac>= 1.0) {
+            bit = 1
+            frac = frac - 1.0
+        }
+        cur = cur * 2 + bit
+        nbits = nbits + 1
+        if(nbits== 8) {
+            mb.add(cur)
+            cur = 0
+            nbits = 0
+        }
+        k = k + 1
+    }
+    var b1 = ((biased & 15) << 4) | nib
+    out.add(b0)
+    out.add(b1)
+    var j = 0
+    while(j < mb.size()) {
+        out.add(mb.get(j))
+        j = j + 1
+    }
+}
+// getIeee(data, pos): reads 8 big-endian IEEE-754 bytes back into a Double.
+getIeee(List < Int > data, Int pos) : Double {
+    if(pos < 0 || pos + 8 > data.size()) {
+        throw"decode: f64 out of bounds"
+    }
+    var b0 = data.get(pos)
+    var b1 = data.get(pos + 1)
+    var sign = (b0 >> 7) & 1
+    var expBits = ((b0 & 127) << 4) | (b1 >> 4)
+    var x = 0.0
+    if(expBits== 0) {
+        // zero (negative zero decodes as +0.0; see README gaps)
+        x = 0.0
+    }
+    else {
+        if(expBits== 2047) {
+            throw"decode: non-finite not supported"
+        }
+        var nib = b1 & 15
+        var acc = mantFromBytes(nib, data, pos + 2)
+        var frac = acc / 4503599627370496.0
+        var m = 1.0 + frac
+        var p = pow2i(expBits - 1023)
+        x = m * p
+        if(sign== 1) {
+            x =- x
+        }
+    }
+    return x
+}
+// ─── UTF-8 string codec ────────────────────────────────────────────────
+// Printable-ASCII alphabet for the decode side. Kof 0.1.3-beta has no
+// Int/Char -> String conversion ("A" + char yields the decimal code), so
+// decoding maps each codepoint back through this 95-char lookup table.
+asciiAlphabet() : String {
+    return" !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~"
+}
+// encUtf8(out, s): length-prefixed UTF-8. The wire format is real UTF-8
+// (1-3 bytes per codepoint, BMP only); the runtime decode gap is handled
+// on the read side, not by weakening the format.
+encUtf8(List < Int > out, String s) {
+    var bytes = listOf < Int > ()
+    var i = 0
+    while(i < s.length) {
+        var cp = s.charAt(i)
+        if(cp < 128) {
+            bytes.add(cp)
+        }
+        else if(cp < 2048) {
+            bytes.add(192 | (cp >> 6))
+            bytes.add(128 | (cp & 63))
+        }
+        else if(cp < 65536) {
+            bytes.add(224 | (cp >> 12))
+            bytes.add(128 | ((cp >> 6) & 63))
+            bytes.add(128 | (cp & 63))
+        }
+        else {
+            throw"encode: codepoint beyond BMP (surrogate pairs unsupported)"
+        }
+        i = i + 1
+    }
+    if(bytes.size() > 65535) {
+        throw"encode: utf8 field too long"
+    }
+    encU16BE(out, bytes.size())
+    var j = 0
+    while(j < bytes.size()) {
+        out.add(bytes.get(j))
+        j = j + 1
+    }
+}
+// decUtf8(buf, pos): inverse of encUtf8. Rebuilds the string char by char
+// via the ASCII lookup table; non-ASCII codepoints throw (runtime gap,
+// see README "Gaps & Limitacoes").
+decUtf8(List < Int > buf, Int pos) : StrRes {
+    var len = decU16BE(buf, pos)
+    pos = len.next
+    if(pos + len.value > buf.size()) {
+        throw"decode: truncated utf8 field"
+    }
+    var table = asciiAlphabet()
+    var s = ""
+    var i = 0
+    while(i < len.value) {
+        var lead = buf.get(pos + i)
+        var cp = 0
+        var nbytes = 1
+        if(lead < 128) {
+            cp = lead
+        }
+        else if(lead>= 192&& lead < 224&& i + 1 < len.value) {
+            cp = ((lead & 31) << 6) | (buf.get(pos + i + 1) & 63)
+            nbytes = 2
+        }
+        else if(lead>= 224&& lead < 240&& i + 2 < len.value) {
+            cp = ((lead & 15) << 12) | ((buf.get(pos + i + 1) & 63) << 6) | (buf.get(pos + i + 2) & 63)
+            nbytes = 3
+        }
+        else {
+            throw"decode: malformed utf8 sequence"
+        }
+        i = i + nbytes
+        if(cp < 32 || cp > 126) {
+            throw"decode: non-ascii codepoint " + cp.toString() + " (runtime has no Int->String)"
+        }
+        s = s + table.substring(cp - 32, cp - 31)
+    }
+    return StrRes(s, pos + len.value)
+}
+// ─── KOF1 frame ────────────────────────────────────────────────────────
+encodeFrame(List < EmpBin > rows) : List < Int > {
+    var out = listOf < Int > ()
+    out.add(75)
+    out.add(79)
+    out.add(70)
+    out.add(49)
+    if(rows.size() > 65535) {
+        throw"encode: too many records"
+    }
+    encU16BE(out, rows.size())
+    var i = 0
+    while(i < rows.size()) {
+        var r = rows.get(i)
+        encU32BE(out, r.id)
+        putIeee(r.salary, out)
+        encUtf8(out, r.name)
+        i = i + 1
+    }
+    return out
+}
+// decodeFrame(buf): parses a KOF1 frame. Throws on bad magic, truncation,
+// trailing bytes, or malformed fields — never returns partial data.
+decodeFrame(List < Int > buf) : List < EmpBin > {
+    if(buf.size() < 6) {
+        throw"decode: frame too short"
+    }
+    if(buf.get(0)!= 75 || buf.get(1)!= 79 || buf.get(2)!= 70 || buf.get(3)!= 49) {
+        throw"decode: bad magic (not a KOF1 frame)"
+    }
+    var pos = 4
+    var cnt = decU16BE(buf, pos)
+    pos = cnt.next
+    var out = listOf < EmpBin > ()
+    var i = 0
+    while(i < cnt.value) {
+        var id = decU32BE(buf, pos)
+        pos = id.next
+        var sal = getIeee(buf, pos)
+        pos = pos + 8
+        var name = decUtf8(buf, pos)
+        pos = name.next
+        out.add(EmpBin(id.value, sal, name.value))
+        i = i + 1
+    }
+    if(pos!= buf.size()) {
+        throw"decode: trailing bytes after frame"
+    }
+    return out
+}
+// ─── RLE compression (count, value pairs) ──────────────────────────────
+// rleEncode(bytes): Run-Length Encoding as (count, value) pairs, count
+// capped at 255 per pair. Same architectural pattern as the run stage of
+// real codecs (gzip/DEFLATE), minus the entropy-coding stage.
+rleEncode(List < Int > bytes) : List < Int > {
+    var out = listOf < Int > ()
+    var n = bytes.size()
+    var i = 0
+    while(i < n) {
+        var v = bytes.get(i)
+        if(v < 0 || v > 255) {
+            throw"rle: byte out of range"
+        }
+        var run = 1
+        while(i + run < n&& run < 255&& bytes.get(i + run)== v) {
+            run = run + 1
+        }
+        out.add(run)
+        out.add(v)
+        i = i + run
+    }
+    return out
+}
+// rleDecode(packed): inverse of rleEncode. Throws on malformed input.
+rleDecode(List < Int > packed) : List < Int > {
+    var out = listOf < Int > ()
+    var n = packed.size()
+    if(n%2!= 0) {
+        throw"rle: odd pair count"
+    }
+    var i = 0
+    while(i < n) {
+        var count = packed.get(i)
+        var v = packed.get(i + 1)
+        if(count < 1 || v < 0 || v > 255) {
+            throw"rle: malformed pair"
+        }
+        var j = 0
+        while(j < count) {
+            out.add(v)
+            j = j + 1
+        }
+        i = i + 2
+    }
+    return out
+}
+// ─── demo ──────────────────────────────────────────────────────────────
+main() {
+    var rows = readCsv("datasets/employees.csv")
+    println("rows parsed: " + rows.size().toString())
+    // 1. serialize to the KOF1 binary frame
+    var raw = encodeFrame(rows)
+    println("raw frame: " + raw.size().toString() + " bytes")
+    // 2. RLE compress + ratio. IEEE-754 doubles are high-entropy, so naive
+    //    RLE expands the frame — the same reason real codecs gate RLE on a
+    //    minimum run length and add an entropy-coding stage.
+    var packed = rleEncode(raw)
+    var pct = packed.size() * 100 / raw.size()
+    println("rle frame: " + packed.size().toString() + " bytes (" + pct.toString() + "% of raw — expanded)")
+    var page = listOf < Int > ()
+    var z = 0
+    while(z < 200) {
+        page.add(0)
+        z = z + 1
+    }
+    page.add(7)
+    var pagePacked = rleEncode(page)
+    var ppct = pagePacked.size() * 100 / page.size()
+    println("rle on 201B run-heavy page: " + pagePacked.size().toString() + " bytes (" + ppct.toString() + "% of raw — compressed)")
+    // 3. persist the raw frame with binary file I/O and read it back
+    var path = "modulo-01-fundamentos/04-io-binario/employees.kof1.bin"
+    var n = raw.size()
+    var arr = new Int[n]
+    var i = 0
+    while(i < n) {
+        arr[i] = raw.get(i)
+        i = i + 1
+    }
+    var wrote = File(path).writeBytes(arr)
+    println("wrote " + path + ": " + wrote.toString())
+    if(! File(path).exists()) {
+        throw"io: file missing after write: " + path
+    }
+    var back = File(path).readBytes()
+    var backList = listOf < Int > ()
+    var bi = 0
+    while(bi < back.length) {
+        backList.add(back[bi])
+        bi = bi + 1
+    }
+    // 4. decode and verify field-by-field against the source rows
+    var restored = decodeFrame(backList)
+    var same = 0
+    var ri = 0
+    while(ri < rows.size()) {
+        var a = rows.get(ri)
+        var b = restored.get(ri)
+        if(a.id== b.id&& a.salary== b.salary&& a.name== b.name) {
+            same = same + 1
+        }
+        ri = ri + 1
+    }
+    println("roundtrip verified: " + same.toString() + "/" + rows.size().toString() + " rows identical")
+    var rj = 0
+    while(rj < restored.size()) {
+        var r = restored.get(rj)
+        println(r.id.toString() + " | name=[" + r.name + "] salary=" + r.salary.toString())
+        rj = rj + 1
+    }
+    // 5. cleanup the temporary artifact
+    var deleted = File(path).delete()
+    println("cleanup delete(" + path + "): " + deleted.toString())
+}

@@ -1,0 +1,371 @@
+// modulo-03-ml/01-features-normalization/exercise.kof
+//
+// Run with: kof test modulo-03-ml/01-features-normalization/exercise.kof
+//
+// Self-contained copy of lab.kof with assertions. Every scaling function
+// is verified against its mathematical invariant:
+//   zscore  -> mean ~ 0, population stddev ~ 1
+//   minmax  -> min == 0, max == 1
+//   oneHot  -> each row sums to 1 with a single active column
+
+// ─── helpers (inline copies of shared/*.kof) ───────────────────────────
+
+split(String s, String delim): List<String> {
+    var out = listOf<String>()
+    if (delim.length == 0) {
+        out.add(s)
+        return out
+    }
+    var start = 0
+    var n = s.length
+    var i = 0
+    while (i < n) {
+        if (s.charAt(i) == delim.charAt(0)) {
+            out.add(s.substring(start, i))
+            start = i + 1
+        }
+        i = i + 1
+    }
+    out.add(s.substring(start, n))
+    return out
+}
+
+trim(String s): String {
+    var n = s.length
+    var start = 0
+    while (start < n) {
+        var c = s.charAt(start)
+        if (c != 32 && c != 9 && c != 10 && c != 13) { break }
+        start = start + 1
+    }
+    var end = n
+    while (end > start) {
+        var c = s.charAt(end - 1)
+        if (c != 32 && c != 9 && c != 10 && c != 13) { break }
+        end = end - 1
+    }
+    return s.substring(start, end)
+}
+
+parseFloatStrict(String s): Double {
+    if (s == null) { throw "parseFloat: null input" }
+    var n = s.length
+    if (n == 0) { throw "parseFloat: empty input" }
+    var i = 0
+    var sign = 1.0
+    var c = s.charAt(0)
+    if (c == 45) { sign = -1.0; i = 1 }
+    else if (c == 43) { i = 1 }
+    if (i >= n) { throw "parseFloat: sign only" }
+    var intPart = 0.0
+    var sawDigit = 0
+    while (i < n) {
+        var ch = s.charAt(i)
+        if (ch >= 48 && ch <= 57) {
+            intPart = intPart * 10.0 + ch - 48.0
+            sawDigit = 1
+            i = i + 1
+        } else { break }
+    }
+    var base = sign * intPart
+    var fracAcc = 0.0
+    var div = 1.0
+    var hasDot = 0
+    if (i < n) {
+        if (s.charAt(i) == 46) {
+            hasDot = 1
+            i = i + 1
+        }
+    }
+    while (i < n && hasDot == 1) {
+        var ch = s.charAt(i)
+        if (ch >= 48 && ch <= 57) {
+            fracAcc = fracAcc * 10.0 + ch - 48.0
+            div = div * 10.0
+            i = i + 1
+        } else { break }
+    }
+    if (sawDigit == 0 && hasDot == 0) { throw "parseFloat: no digits" }
+    if (i < n) { throw "parseFloat: trailing garbage" }
+    var frac = fracAcc / div
+    var value = base + frac
+    return value
+}
+
+// Source: shared/math.kof (iterations raised from 10 to 40 — see lab.kof)
+sqrt(Double x): Double {
+    if (x <= 0.0) {
+        return 0.0
+    }
+    var g = x
+    var i = 0
+    while (i < 40) {
+        g = 0.5 * (g + x / g)
+        i = i + 1
+    }
+    return g
+}
+
+mean(List<Double> xs): Double {
+    var n = xs.size()
+    if (n == 0) {
+        return 0.0
+    }
+    var s = 0.0
+    var i = 0
+    while (i < n) {
+        s = s + xs.get(i)
+        i = i + 1
+    }
+    var nf = 1.0 * n
+    return s / nf
+}
+
+stddev(List<Double> xs, Double mu): Double {
+    var n = xs.size()
+    if (n == 0) {
+        return 0.0
+    }
+    var acc = 0.0
+    var i = 0
+    while (i < n) {
+        var d = xs.get(i) - mu
+        acc = acc + d * d
+        i = i + 1
+    }
+    var nf = 1.0 * n
+    var v = acc / nf
+    return sqrt(v)
+}
+
+// ─── feature scaling (pure functions) ──────────────────────────────────
+
+zscore(List<Double> xs): List<Double> {
+    var n = xs.size()
+    if (n == 0) { throw "zscore: empty column" }
+    var mu = mean(xs)
+    var sd = stddev(xs, mu)
+    if (sd == 0.0) { throw "zscore: zero variance column" }
+    var out = listOf<Double>()
+    var i = 0
+    while (i < n) {
+        var z = (xs.get(i) - mu) / sd
+        out.add(z)
+        i = i + 1
+    }
+    return out
+}
+
+minmax(List<Double> xs): List<Double> {
+    var n = xs.size()
+    if (n == 0) { throw "minmax: empty column" }
+    var lo = xs.get(0)
+    var hi = xs.get(0)
+    var i = 0
+    while (i < n) {
+        var v = xs.get(i)
+        if (v < lo) { lo = v }
+        if (v > hi) { hi = v }
+        i = i + 1
+    }
+    var range = hi - lo
+    if (range == 0.0) { throw "minmax: constant column" }
+    var out = listOf<Double>()
+    i = 0
+    while (i < n) {
+        var m = (xs.get(i) - lo) / range
+        out.add(m)
+        i = i + 1
+    }
+    return out
+}
+
+// ─── one-hot encoding ──────────────────────────────────────────────────
+
+uniqueCategories(List<String> labels): List<String> {
+    var cats = listOf<String>()
+    var n = labels.size()
+    var i = 0
+    while (i < n) {
+        var c = labels.get(i)
+        var found = 0
+        var j = 0
+        var m = cats.size()
+        while (j < m) {
+            if (cats.get(j) == c) { found = 1 }
+            j = j + 1
+        }
+        if (found == 0) { cats.add(c) }
+        i = i + 1
+    }
+    return cats
+}
+
+oneHot(List<String> labels): List<List<Double>> {
+    var cats = uniqueCategories(labels)
+    var k = cats.size()
+    var out = listOf<List<Double>>()
+    var n = labels.size()
+    var i = 0
+    while (i < n) {
+        var row = listOf<Double>()
+        var c = labels.get(i)
+        var j = 0
+        while (j < k) {
+            if (cats.get(j) == c) {
+                row.add(1.0)
+            } else {
+                row.add(0.0)
+            }
+            j = j + 1
+        }
+        out.add(row)
+        i = i + 1
+    }
+    return out
+}
+
+// ─── dataset loading ───────────────────────────────────────────────────
+
+loadColumn(String path, String delim, Int colIdx, Int hasHeader): List<Double> {
+    var raw = File(path).readText()
+    if (raw == null) { throw "features: cannot read " + path }
+    var lines = split(raw, "\n")
+    var out = listOf<Double>()
+    var n = lines.size()
+    var i = 0
+    if (hasHeader == 1) { i = 1 }
+    while (i < n) {
+        var line = trim(lines.get(i))
+        if (line.length > 0) {
+            var cols = split(line, delim)
+            out.add(parseFloatStrict(trim(cols.get(colIdx))))
+        }
+        i = i + 1
+    }
+    return out
+}
+
+loadStringColumn(String path, String delim, Int colIdx, Int hasHeader): List<String> {
+    var raw = File(path).readText()
+    if (raw == null) { throw "features: cannot read " + path }
+    var lines = split(raw, "\n")
+    var out = listOf<String>()
+    var n = lines.size()
+    var i = 0
+    if (hasHeader == 1) { i = 1 }
+    while (i < n) {
+        var line = trim(lines.get(i))
+        if (line.length > 0) {
+            var cols = split(line, delim)
+            out.add(trim(cols.get(colIdx)))
+        }
+        i = i + 1
+    }
+    return out
+}
+
+// ─── tests ─────────────────────────────────────────────────────────────
+
+test "zscore of houses sqft has mean ~ 0" {
+    var col = loadColumn("datasets/houses.tsv", "\t", 0, 1)
+    var z = zscore(col)
+    var m = mean(z)
+    var a = m
+    if (a < 0.0) { a = -a }
+    println("zscore mean = " + m.toString())
+    assert(a < 0.0000001, "mean should be ~ 0")
+}
+
+test "zscore of houses sqft has stddev ~ 1" {
+    var col = loadColumn("datasets/houses.tsv", "\t", 0, 1)
+    var z = zscore(col)
+    var m = mean(z)
+    var sd = stddev(z, m)
+    var d = sd - 1.0
+    if (d < 0.0) { d = -d }
+    println("zscore stddev = " + sd.toString())
+    assert(d < 0.0000001, "stddev should be ~ 1")
+}
+
+test "minmax of houses price spans exactly [0, 1]" {
+    var col = loadColumn("datasets/houses.tsv", "\t", 4, 1)
+    var mm = minmax(col)
+    var lo = mm.get(0)
+    var hi = mm.get(0)
+    var i = 0
+    var n = mm.size()
+    while (i < n) {
+        var v = mm.get(i)
+        if (v < lo) { lo = v }
+        if (v > hi) { hi = v }
+        i = i + 1
+    }
+    println("minmax range = [" + lo.toString() + ", " + hi.toString() + "]")
+    assert(lo == 0.0, "min should be 0")
+    assert(hi == 1.0, "max should be 1")
+}
+
+test "minmax maps known endpoints correctly" {
+    var xs = listOf<Double>()
+    xs.add(10.0)
+    xs.add(20.0)
+    xs.add(30.0)
+    var mm = minmax(xs)
+    assert(mm.get(0) == 0.0, "min endpoint -> 0")
+    assert(mm.get(1) == 0.5, "midpoint -> 0.5")
+    assert(mm.get(2) == 1.0, "max endpoint -> 1")
+}
+
+test "zscore throws on constant column" {
+    var xs = listOf<Double>()
+    xs.add(5.0)
+    xs.add(5.0)
+    var threw = 0
+    try {
+        var z = zscore(xs)
+        assert(z.size() == 0, "should not reach")
+    } catch (String e) {
+        threw = 1
+    }
+    assert(threw == 1, "zscore must throw on zero variance")
+}
+
+test "one-hot encodes iris species with one active column per row" {
+    var species = loadStringColumn("datasets/iris.csv", ",", 4, 1)
+    var enc = oneHot(species)
+    var cats = uniqueCategories(species)
+    assert(enc.size() == 15, "15 rows")
+    assert(cats.size() == 3, "3 species")
+    assert(enc.get(0).size() == 3, "3 columns")
+    var i = 0
+    var n = enc.size()
+    while (i < n) {
+        var row = enc.get(i)
+        var sum = 0.0
+        var j = 0
+        while (j < 3) {
+            sum = sum + row.get(j)
+            j = j + 1
+        }
+        assert(sum == 1.0, "row " + i.toString() + " must sum to 1")
+        i = i + 1
+    }
+}
+
+test "one-hot first iris row is setosa (col 0)" {
+    var species = loadStringColumn("datasets/iris.csv", ",", 4, 1)
+    var enc = oneHot(species)
+    var row = enc.get(0)
+    assert(row.get(0) == 1.0, "setosa col")
+    assert(row.get(1) == 0.0, "versicolor off")
+    assert(row.get(2) == 0.0, "virginica off")
+}
+
+test "one-hot last iris row is virginica (col 2)" {
+    var species = loadStringColumn("datasets/iris.csv", ",", 4, 1)
+    var enc = oneHot(species)
+    var row = enc.get(14)
+    assert(row.get(2) == 1.0, "virginica col")
+    assert(row.get(0) == 0.0, "setosa off")
+}

@@ -1,0 +1,480 @@
+// modulo-03-ml/03-decision-tree/lab.kof
+//
+// Binary decision tree classifier (CART-style, Gini impurity) on
+// datasets/iris.csv: predict species from the 4 numeric features.
+//   - recursive split search: best (feature, threshold) minimizing the
+//     weighted Gini impurity of the two children
+//   - configurable max depth
+//   - tree stored as flat parallel arrays (children are built BEFORE the
+//     parent, so node ids are known when the parent row is appended)
+//
+// NOTE (didactic): train == eval set (15 rows). Accuracy here measures
+// fit, not generalization — see README "Overfitting".
+//
+// Source: shared/strutils.kof, shared/numberparse.kof
+// Target: JVM (kof run; default target)
+
+// ─── helpers (inline copies of shared/*.kof) ───────────────────────────
+
+split(String s, String delim): List<String> {
+    var out = listOf<String>()
+    if (delim.length == 0) {
+        out.add(s)
+        return out
+    }
+    var start = 0
+    var n = s.length
+    var i = 0
+    while (i < n) {
+        if (s.charAt(i) == delim.charAt(0)) {
+            out.add(s.substring(start, i))
+            start = i + 1
+        }
+        i = i + 1
+    }
+    out.add(s.substring(start, n))
+    return out
+}
+
+trim(String s): String {
+    var n = s.length
+    var start = 0
+    while (start < n) {
+        var c = s.charAt(start)
+        if (c != 32 && c != 9 && c != 10 && c != 13) { break }
+        start = start + 1
+    }
+    var end = n
+    while (end > start) {
+        var c = s.charAt(end - 1)
+        if (c != 32 && c != 9 && c != 10 && c != 13) { break }
+        end = end - 1
+    }
+    return s.substring(start, end)
+}
+
+parseFloatStrict(String s): Double {
+    if (s == null) { throw "parseFloat: null input" }
+    var n = s.length
+    if (n == 0) { throw "parseFloat: empty input" }
+    var i = 0
+    var sign = 1.0
+    var c = s.charAt(0)
+    if (c == 45) { sign = -1.0; i = 1 }
+    else if (c == 43) { i = 1 }
+    if (i >= n) { throw "parseFloat: sign only" }
+    var intPart = 0.0
+    var sawDigit = 0
+    while (i < n) {
+        var ch = s.charAt(i)
+        if (ch >= 48 && ch <= 57) {
+            intPart = intPart * 10.0 + ch - 48.0
+            sawDigit = 1
+            i = i + 1
+        } else { break }
+    }
+    var base = sign * intPart
+    var fracAcc = 0.0
+    var div = 1.0
+    var hasDot = 0
+    if (i < n) {
+        if (s.charAt(i) == 46) {
+            hasDot = 1
+            i = i + 1
+        }
+    }
+    while (i < n && hasDot == 1) {
+        var ch = s.charAt(i)
+        if (ch >= 48 && ch <= 57) {
+            fracAcc = fracAcc * 10.0 + ch - 48.0
+            div = div * 10.0
+            i = i + 1
+        } else { break }
+    }
+    if (sawDigit == 0 && hasDot == 0) { throw "parseFloat: no digits" }
+    if (i < n) { throw "parseFloat: trailing garbage" }
+    var frac = fracAcc / div
+    var value = base + frac
+    return value
+}
+
+// ─── dataset ───────────────────────────────────────────────────────────
+
+// loadIris(path): parses iris.csv into X (4 features per row) and y
+// (species string). Throws on malformed rows.
+loadIris(String path): List<List<Double>> {
+    var raw = File(path).readText()
+    if (raw == null) { throw "tree: cannot read " + path }
+    var lines = split(raw, "\n")
+    var out = listOf<List<Double>>()
+    var n = lines.size()
+    var i = 1
+    while (i < n) {
+        var line = trim(lines.get(i))
+        if (line.length > 0) {
+            var cols = split(line, ",")
+            if (cols.size() != 5) {
+                throw "tree: bad iris row (expected 5 cols)"
+            }
+            var row = listOf<Double>()
+            row.add(parseFloatStrict(trim(cols.get(0))))
+            row.add(parseFloatStrict(trim(cols.get(1))))
+            row.add(parseFloatStrict(trim(cols.get(2))))
+            row.add(parseFloatStrict(trim(cols.get(3))))
+            out.add(row)
+        }
+        i = i + 1
+    }
+    return out
+}
+
+loadIrisLabels(String path): List<String> {
+    var raw = File(path).readText()
+    if (raw == null) { throw "tree: cannot read " + path }
+    var lines = split(raw, "\n")
+    var out = listOf<String>()
+    var n = lines.size()
+    var i = 1
+    while (i < n) {
+        var line = trim(lines.get(i))
+        if (line.length > 0) {
+            var cols = split(line, ",")
+            out.add(trim(cols.get(4)))
+        }
+        i = i + 1
+    }
+    return out
+}
+
+// ─── tree storage ──────────────────────────────────────────────────────
+
+// Flat tree: node i is a LEAF iff feat[i] == -1 (then pred[i] is the
+// class index), otherwise split on X[row][feat[i]] <= thresh[i].
+record Tree(
+    Int root,
+    List<Int> feat,
+    List<Double> thresh,
+    List<Int> left,
+    List<Int> right,
+    List<Int> pred,
+    List<String> classNames
+)
+
+// Candidate split descriptor.
+record Split(Int ok, Int feature, Double threshold, Double gini)
+
+// classIndexOf(classNames, label): index of a label; throws if unknown.
+classIndexOf(List<String> classNames, String label): Int {
+    var n = classNames.size()
+    var i = 0
+    while (i < n) {
+        if (classNames.get(i) == label) { return i }
+        i = i + 1
+    }
+    throw "tree: unknown class " + label
+}
+
+// majorityClass(y, classNames, subset): most frequent class index inside
+// the subset. Ties resolve to the lowest class index (deterministic).
+majorityClass(List<String> y, List<String> classNames, List<Int> subset): Int {
+    var k = classNames.size()
+    var counts = listOf<Int>()
+    var c = 0
+    while (c < k) {
+        counts.add(0)
+        c = c + 1
+    }
+    var n = subset.size()
+    var i = 0
+    while (i < n) {
+        var idx = classIndexOf(classNames, y.get(subset.get(i)))
+        counts.set(idx, counts.get(idx) + 1)
+        i = i + 1
+    }
+    var best = 0
+    i = 1
+    while (i < k) {
+        if (counts.get(i) > counts.get(best)) { best = i }
+        i = i + 1
+    }
+    return best
+}
+
+// giniOfCounts(counts, total): 1 - sum((c/t)^2). 0.0 on empty total.
+giniOfCounts(List<Int> counts, Int total): Double {
+    if (total == 0) { return 0.0 }
+    var g = 1.0
+    var k = counts.size()
+    var i = 0
+    var tf = 1.0 * total
+    while (i < k) {
+        var p = 1.0 * counts.get(i) / tf
+        g = g - p * p
+        i = i + 1
+    }
+    return g
+}
+
+// giniOfSubset(y, classNames, subset): impurity of a single node.
+giniOfSubset(List<String> y, List<String> classNames, List<Int> subset): Double {
+    var k = classNames.size()
+    var counts = listOf<Int>()
+    var c = 0
+    while (c < k) {
+        counts.add(0)
+        c = c + 1
+    }
+    var n = subset.size()
+    var i = 0
+    while (i < n) {
+        var idx = classIndexOf(classNames, y.get(subset.get(i)))
+        counts.set(idx, counts.get(idx) + 1)
+        i = i + 1
+    }
+    return giniOfCounts(counts, n)
+}
+
+// giniAfterSplit(X, y, classNames, subset, feature, threshold): weighted
+// Gini of the (<= thr | > thr) partition.
+giniAfterSplit(List<List<Double>> X, List<String> y, List<String> classNames, List<Int> subset, Int feature, Double threshold): Double {
+    var k = classNames.size()
+    var leftCounts = listOf<Int>()
+    var rightCounts = listOf<Int>()
+    var c = 0
+    while (c < k) {
+        leftCounts.add(0)
+        rightCounts.add(0)
+        c = c + 1
+    }
+    var leftN = 0
+    var rightN = 0
+    var n = subset.size()
+    var i = 0
+    while (i < n) {
+        var rowIdx = subset.get(i)
+        var v = X.get(rowIdx).get(feature)
+        var cls = classIndexOf(classNames, y.get(rowIdx))
+        if (v <= threshold) {
+            leftCounts.set(cls, leftCounts.get(cls) + 1)
+            leftN = leftN + 1
+        } else {
+            rightCounts.set(cls, rightCounts.get(cls) + 1)
+            rightN = rightN + 1
+        }
+        i = i + 1
+    }
+    var totalN = leftN + rightN
+    if (leftN == 0 || rightN == 0) { return 2.0 }
+    var gl = giniOfCounts(leftCounts, leftN)
+    var gr = giniOfCounts(rightCounts, rightN)
+    var lf = 1.0 * leftN
+    var rf = 1.0 * rightN
+    var tf = 1.0 * totalN
+    var g = lf / tf * gl + rf / tf * gr
+    return g
+}
+
+// findBestSplit(X, y, classNames, subset): exhaustive search over all
+// (feature, midpoint threshold) pairs. Returns ok=0 when no split exists
+// (all values equal on every feature).
+findBestSplit(List<List<Double>> X, List<String> y, List<String> classNames, List<Int> subset): Split {
+    var numFeat = X.get(0).size()
+    var bestG = 2.0
+    var bestF = -1
+    var bestT = 0.0
+    var f = 0
+    while (f < numFeat) {
+        var i = 0
+        var n = subset.size()
+        while (i < n) {
+            var j = i + 1
+            while (j < n) {
+                var vi = X.get(subset.get(i)).get(f)
+                var vj = X.get(subset.get(j)).get(f)
+                if (vi != vj) {
+                    var thr = 0.5 * (vi + vj)
+                    var g = giniAfterSplit(X, y, classNames, subset, f, thr)
+                    if (g < bestG) {
+                        bestG = g
+                        bestF = f
+                        bestT = thr
+                    }
+                }
+                j = j + 1
+            }
+            i = i + 1
+        }
+        f = f + 1
+    }
+    return Split(bestF + 1, bestF, bestT, bestG)
+}
+
+// buildNode(...): recursive split. Children are appended to the flat
+// arrays BEFORE the parent, so their ids are known when the parent row
+// is written. Returns the node id of the built subtree.
+buildNode(List<List<Double>> X, List<String> y, List<String> classNames, List<Int> subset, Int depth, Int maxDepth, List<Int> feat, List<Double> thresh, List<Int> left, List<Int> right, List<Int> pred): Int {
+    var k = classNames.size()
+    var maj = majorityClass(y, classNames, subset)
+    var parentGini = giniOfSubset(y, classNames, subset)
+
+    // stop conditions: depth budget, pure node, or no possible split
+    var sp = findBestSplit(X, y, classNames, subset)
+    var mustStop = 0
+    if (depth >= maxDepth) { mustStop = 1 }
+    if (parentGini == 0.0) { mustStop = 1 }
+    if (sp.ok == 0) { mustStop = 1 }
+    if (sp.gini >= parentGini) { mustStop = 1 }
+
+    if (mustStop == 1) {
+        var leafId = feat.size()
+        feat.add(-1)
+        thresh.add(0.0)
+        left.add(-1)
+        right.add(-1)
+        pred.add(maj)
+        return leafId
+    }
+
+    // partition the subset
+    var leftIdx = listOf<Int>()
+    var rightIdx = listOf<Int>()
+    var n = subset.size()
+    var i = 0
+    while (i < n) {
+        var rowIdx = subset.get(i)
+        var v = X.get(rowIdx).get(sp.feature)
+        if (v <= sp.threshold) {
+            leftIdx.add(rowIdx)
+        } else {
+            rightIdx.add(rowIdx)
+        }
+        i = i + 1
+    }
+
+    var leftId = buildNode(X, y, classNames, leftIdx, depth + 1, maxDepth, feat, thresh, left, right, pred)
+    var rightId = buildNode(X, y, classNames, rightIdx, depth + 1, maxDepth, feat, thresh, left, right, pred)
+
+    var nodeId = feat.size()
+    feat.add(sp.feature)
+    thresh.add(sp.threshold)
+    left.add(leftId)
+    right.add(rightId)
+    pred.add(-1)
+    return nodeId
+}
+
+// buildTree(X, y, maxDepth): fits the tree and returns the bundle.
+buildTree(List<List<Double>> X, List<String> y, Int maxDepth): Tree {
+    if (X.size() == 0) { throw "tree: empty dataset" }
+    if (X.size() != y.size()) { throw "tree: x/y size mismatch" }
+    if (maxDepth < 0) { throw "tree: negative maxDepth" }
+    var classNames = uniqueCategories(y)
+    var feat = listOf<Int>()
+    var thresh = listOf<Double>()
+    var left = listOf<Int>()
+    var right = listOf<Int>()
+    var pred = listOf<Int>()
+    var subset = listOf<Int>()
+    var i = 0
+    var n = X.size()
+    while (i < n) {
+        subset.add(i)
+        i = i + 1
+    }
+    var root = buildNode(X, y, classNames, subset, 0, maxDepth, feat, thresh, left, right, pred)
+    return Tree(root, feat, thresh, left, right, pred, classNames)
+}
+
+// predictOne(tree, row): walk from root to leaf, following
+// x[feat] <= thresh ? left : right.
+predictOne(Tree tree, List<Double> row): String {
+    var id = tree.root
+    while (tree.feat.get(id) != -1) {
+        var v = row.get(tree.feat.get(id))
+        if (v <= tree.thresh.get(id)) {
+            id = tree.left.get(id)
+        } else {
+            id = tree.right.get(id)
+        }
+    }
+    return tree.classNames.get(tree.pred.get(id))
+}
+
+// accuracy(tree, X, y): fraction of correctly classified rows.
+accuracy(Tree tree, List<List<Double>> X, List<String> y): Double {
+    var n = X.size()
+    if (n == 0) { throw "tree: empty eval set" }
+    var correct = 0
+    var i = 0
+    while (i < n) {
+        var p = predictOne(tree, X.get(i))
+        if (p == y.get(i)) { correct = correct + 1 }
+        i = i + 1
+    }
+    var cf = 1.0 * correct
+    var nf = 1.0 * n
+    return cf / nf
+}
+
+// dumpNode(tree, nodeId, depth): recursive pretty-print of the tree.
+dumpNode(Tree tree, Int nodeId, Int depth): String {
+    var pad = ""
+    var i = 0
+    while (i < depth) {
+        pad = pad + "  "
+        i = i + 1
+    }
+    if (tree.feat.get(nodeId) == -1) {
+        var lbl = tree.classNames.get(tree.pred.get(nodeId))
+        return pad + "-> " + lbl + "\n"
+    }
+    var s = pad + "if x[" + tree.feat.get(nodeId).toString() + "] <= " + tree.thresh.get(nodeId).toString() + ":\n"
+    var ls = dumpNode(tree, tree.left.get(nodeId), depth + 1)
+    s = s + ls
+    s = s + pad + "else:\n"
+    var rs = dumpNode(tree, tree.right.get(nodeId), depth + 1)
+    s = s + rs
+    return s
+}
+
+// uniqueCategories: first-seen order (needed by buildTree).
+uniqueCategories(List<String> labels): List<String> {
+    var cats = listOf<String>()
+    var n = labels.size()
+    var i = 0
+    while (i < n) {
+        var c = labels.get(i)
+        var found = 0
+        var j = 0
+        var m = cats.size()
+        while (j < m) {
+            if (cats.get(j) == c) { found = 1 }
+            j = j + 1
+        }
+        if (found == 0) { cats.add(c) }
+        i = i + 1
+    }
+    return cats
+}
+
+// ─── demo ──────────────────────────────────────────────────────────────
+
+main() {
+    var X = loadIris("datasets/iris.csv")
+    var y = loadIrisLabels("datasets/iris.csv")
+    println("dataset: " + X.size().toString() + " rows x " + X.get(0).size().toString() + " features, " + uniqueCategories(y).size().toString() + " classes")
+
+    var maxDepth = 4
+    var tree = buildTree(X, y, maxDepth)
+    println("tree nodes: " + tree.feat.size().toString() + " (maxDepth=" + maxDepth.toString() + ")")
+    var acc = accuracy(tree, X, y)
+    println("train accuracy (train == test, didactic): " + acc.toString())
+    println("")
+    var dump = dumpNode(tree, tree.root, 0)
+    println(dump)
+
+    // depth-1 stump: how far does a single split go?
+    var stump = buildTree(X, y, 1)
+    var acc1 = accuracy(stump, X, y)
+    println("depth-1 stump accuracy: " + acc1.toString())
+}

@@ -1,0 +1,154 @@
+// modulo-01-fundamentos/03-pipeline-paralelo/exercise.kof
+//
+// Run with: kof test modulo-01-fundamentos/03-pipeline-paralelo/exercise.kof
+
+// ─── helpers ───────────────────────────────────────────────────────────
+
+split(String s, String delim): List<String> {
+    var out = listOf<String>()
+    var start = 0
+    var n = s.length
+    var i = 0
+    while (i < n) {
+        if (s.charAt(i) == delim.charAt(0)) {
+            out.add(s.substring(start, i))
+            start = i + 1
+        }
+        i = i + 1
+    }
+    out.add(s.substring(start, n))
+    return out
+}
+
+trim(String s): String {
+    var n = s.length
+    var start = 0
+    while (start < n) {
+        var c = s.charAt(start)
+        if (c != 32 && c != 9 && c != 10 && c != 13) { break }
+        start = start + 1
+    }
+    var end = n
+    while (end > start) {
+        var c = s.charAt(end - 1)
+        if (c != 32 && c != 9 && c != 10 && c != 13) { break }
+        end = end - 1
+    }
+    return s.substring(start, end)
+}
+
+parseFloatStrict(String s): Double {
+    if (s == null) { throw "parseFloat: null input" }
+    var n = s.length
+    if (n == 0) { throw "parseFloat: empty input" }
+    var i = 0
+    var sign = 1.0
+    var c = s.charAt(0)
+    if (c == 45) { sign = -1.0; i = 1 }
+    else if (c == 43) { i = 1 }
+    if (i >= n) { throw "parseFloat: sign only" }
+    var intPart = 0.0
+    var sawDigit = 0
+    while (i < n) {
+        var ch = s.charAt(i)
+        if (ch >= 48 && ch <= 57) {
+            intPart = intPart * 10.0 + ch - 48.0
+            sawDigit = 1
+            i = i + 1
+        } else { break }
+    }
+    var base = sign * intPart
+    var fracAcc = 0.0
+    var div = 1.0
+    var hasDot = 0
+    if (i < n) {
+        if (s.charAt(i) == 46) {
+            hasDot = 1
+            i = i + 1
+        }
+    }
+    while (i < n && hasDot == 1) {
+        var ch = s.charAt(i)
+        if (ch >= 48 && ch <= 57) {
+            fracAcc = fracAcc * 10.0 + ch - 48.0
+            div = div * 10.0
+            i = i + 1
+        } else { break }
+    }
+    if (sawDigit == 0 && hasDot == 0) { throw "parseFloat: no digits" }
+    if (i < n) { throw "parseFloat: trailing garbage" }
+    var frac = fracAcc / div
+    var value = base + frac
+    return value
+}
+
+parseFloatSafe(String s, Double fallback): Double {
+    try { return parseFloatStrict(s) } catch (String e) { return fallback }
+}
+
+// ─── domain ────────────────────────────────────────────────────────────
+
+sumIrisRange(String path, Int lo, Int hi): Double {
+    var raw = File(path).readText()
+    var lines = split(raw, "\n")
+    var acc = 0.0
+    var i = 1 + lo
+    var end = 1 + hi
+    while (i < end && i < lines.size()) {
+        var line = trim(lines.get(i))
+        if (line.length > 0) {
+            var cols = split(line, ",")
+            var sl = parseFloatSafe(trim(cols.get(0)), 0.0)
+            acc = acc + sl
+        }
+        i = i + 1
+    }
+    return acc
+}
+
+sumIrisA(): Double { return sumIrisRange("datasets/iris.csv", 0, 4) }
+sumIrisB(): Double { return sumIrisRange("datasets/iris.csv", 4, 8) }
+sumIrisC(): Double { return sumIrisRange("datasets/iris.csv", 8, 11) }
+sumIrisD(): Double { return sumIrisRange("datasets/iris.csv", 11, 15) }
+sumIrisAll(): Double { return sumIrisRange("datasets/iris.csv", 0, 15) }
+
+// ─── tests ─────────────────────────────────────────────────────────────
+
+test "single-task sum covers rows 0-3" {
+    var s = sumIrisRange("datasets/iris.csv", 0, 4)
+    var diff = s - 19.3
+    if (diff < 0.0) { diff = -diff }
+    assert(diff < 0.01, "expected ~19.3 got " + s.toString())
+}
+
+test "sequential sum covers all 15 rows" {
+    var s = sumIrisAll()
+    var diff = s - 88.6
+    if (diff < 0.0) { diff = -diff }
+    assert(diff < 0.01, "expected ~88.6 got " + s.toString())
+}
+
+test "parallel pipeline total matches sequential" {
+    var h0 = spawn sumIrisA()
+    var h1 = spawn sumIrisB()
+    var h2 = spawn sumIrisC()
+    var h3 = spawn sumIrisD()
+    var s0 = await h0
+    var s1 = await h1
+    var s2 = await h2
+    var s3 = await h3
+    var par = s0 + s1 + s2 + s3
+    var seq = sumIrisAll()
+    var diff = par - seq
+    if (diff < 0.0) { diff = -diff }
+    assert(diff < 0.01, "par=" + par.toString() + " seq=" + seq.toString())
+}
+
+test "await is memoized for same handle" {
+    var h = spawn sumIrisA()
+    var v1 = await h
+    var v2 = await h
+    var diff = v1 - v2
+    if (diff < 0.0) { diff = -diff }
+    assert(diff < 0.001, "second await returns same value")
+}

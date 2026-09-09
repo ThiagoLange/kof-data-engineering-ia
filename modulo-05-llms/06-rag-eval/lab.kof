@@ -1,0 +1,24 @@
+// modulo-05-llms/06-rag-eval/lab.kof
+// Avaliação RAG: hit@k e MRR sobre docs.jsonl com queries sintéticas.
+// Target: JVM 0.3.2 compact.
+split(String s, String delim): List<String> { var out=listOf<String>(); var start=0; var n=s.length; var i=0; while(i<n){ if(s.charAt(i)==delim.charAt(0)){ out.add(s.substring(start,i)); start=i+1 } i=i+1 } out.add(s.substring(start,n)); return out }
+trim(String s): String { var n=s.length; var start=0; while(start<n){ var c=s.charAt(start); if(c!=32&&c!=9&&c!=10&&c!=13){break} start=start+1 } var end=n; while(end>start){ var c=s.charAt(end-1); if(c!=32&&c!=9&&c!=10&&c!=13){break} end=end-1 } return s.substring(start,end) }
+indexOf(String s, String needle): Int { if(needle.length==0){return 0} var n=s.length; var m=needle.length; if(m>n){return -1} var limit=n-m; var i=0; while(i<=limit){ var match=1; var j=0; while(j<m){ if(s.charAt(i+j)!=needle.charAt(j)){match=0; j=m} else{j=j+1} } if(match==1){return i} i=i+1 } return -1 }
+sqrt(Double x): Double { if(x<=0.0){return 0.0} var g=x; var i=0; while(i<20){ g=0.5*(g+x/g); i=i+1 } return g }
+dot(List<Double> a, List<Double> b): Double { var s=0.0; var i=0; while(i<a.size()){ s=s+a.get(i)*b.get(i); i=i+1 } return s }
+norm(List<Double> a): Double { var s=0.0; var i=0; while(i<a.size()){ s=s+a.get(i)*a.get(i); i=i+1 } return sqrt(s) }
+fakeEmbed(String text, Int dim): List<Double> { var buckets=listOf<Double>(); var i=0; while(i<dim){buckets.add(0.0); i=i+1} var j=0; while(j<text.length){ var c=text.charAt(j); var idx=j%dim; buckets.set(idx, buckets.get(idx)+1.0*c); j=j+1 } var n=norm(buckets); if(n==0.0){return buckets} var out=listOf<Double>(); var k=0; while(k<dim){ out.add(buckets.get(k)/n); k=k+1 } return out }
+cosineSim(List<Double> a, List<Double> b): Double { var nA=norm(a); var nB=norm(b); if(nA==0.0||nB==0.0){return 0.0} return dot(a,b)/(nA*nB) }
+record DocJson(String id, String title, String body, String lang)
+record Query(String text, String expectedId)
+loadDocs(String path): List<DocJson> { var raw=File(path).readText(); if(raw==null){throw "docs: cannot read "+path} var lines=split(raw,"\n"); var out=listOf<DocJson>(); var i=0; while(i<lines.size()){ var l=trim(lines.get(i)); if(l.length>0){out.add(json.decode<DocJson>(l))} i=i+1 } return out }
+hitAtK(String expected, List<String> ranked, Int k): Int { var i=0; while(i<k && i<ranked.size()){ if(ranked.get(i)==expected){return 1} i=i+1 } return 0 }
+mrr(String expected, List<String> ranked): Double { var i=0; while(i<ranked.size()){ if(ranked.get(i)==expected){return 1.0/(1.0*(i+1))} i=i+1 } return 0.0 }
+search(List<DocJson> docs, String query, Int dim): List<String> { var qEmb=fakeEmbed(query,dim); var scores=listOf<Double>(); var ids=listOf<String>(); var i=0; while(i<docs.size()){ var d=docs.get(i); var emb=fakeEmbed(d.title+" "+d.body,dim); scores.add(cosineSim(qEmb,emb)); ids.add(d.id); i=i+1 } var ranked=listOf<String>(); var remaining=listOf<Int>(); var r=0; while(r<scores.size()){ remaining.add(r); r=r+1 } var t=0; while(t<scores.size()){ var bestPos=0; var best=scores.get(remaining.get(0)); var j=1; while(j<remaining.size()){ var idx=remaining.get(j); var sc=scores.get(idx); if(sc>best){best=sc; bestPos=j} j=j+1 } ranked.add(ids.get(remaining.get(bestPos))); var nxt=listOf<Int>(); var rr=0; while(rr<remaining.size()){ if(rr!=bestPos){nxt.add(remaining.get(rr))} rr=rr+1 } remaining=nxt; t=t+1 } return ranked }
+main() {
+    var docs=loadDocs("datasets/docs.jsonl")
+    var queries=listOf<Query>(); queries.add(Query("Kof statically typed language","d1")); queries.add(Query("Data engineering pipelines","d2")); queries.add(Query("vector store embeddings","d3"))
+    var dim=4; var hit1=0; var mrrSum=0.0; var i=0; while(i<queries.size()){ var q=queries.get(i); var ranked=search(docs,q.text,dim); var h=hitAtK(q.expectedId, ranked,1); var m=mrr(q.expectedId, ranked); hit1=hit1+h; mrrSum=mrrSum+m; println("query \""+q.text+"\" expected "+q.expectedId+" ranked[0]="+ranked.get(0)+" hit@1="+h.toString()+" mrr="+m.toString()); i=i+1 }
+    var hitRate=(1.0*hit1)/(1.0*queries.size()); var meanMrr=mrrSum/(1.0*queries.size())
+    println("hit@1: "+hitRate.toString()+" mrr: "+meanMrr.toString())
+}

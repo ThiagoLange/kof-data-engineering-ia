@@ -1,0 +1,27 @@
+// modulo-08-data/07-cdc/lab.kof
+// CDC + Exactly-Once: WAL + idempotency via watermark + compaction.
+// Target: JVM 0.3.2 compact.
+split(String s, String delim): List<String> { var out=listOf<String>(); var start=0; var n=s.length; var i=0; while(i<n){ if(s.charAt(i)==delim.charAt(0)){ out.add(s.substring(start,i)); start=i+1 } i=i+1 } out.add(s.substring(start,n)); return out }
+trim(String s): String { var n=s.length; var start=0; while(start<n){ var c=s.charAt(start); if(c!=32&&c!=9&&c!=10&&c!=13){break} start=start+1 } var end=n; while(end>start){ var c=s.charAt(end-1); if(c!=32&&c!=9&&c!=10&&c!=13){break} end=end-1 } return s.substring(start,end) }
+record WALEntry(Int txId, String op, String data)
+appendWAL(String path, WALEntry e): Int { var prev=File(path).readText(); var sb=""; if(prev!=null && prev.length>0){ sb=prev+"\n" } sb=sb+json.encode(e); File(path).writeText(sb); return 0 }
+readWAL(String path): List<WALEntry> { var raw=File(path).readText(); if(raw==null){return listOf<WALEntry>()} var lines=split(raw,"\n"); var out=listOf<WALEntry>(); var i=0; while(i<lines.size()){ var l=trim(lines.get(i)); if(l.length>0){ out.add(json.decode<WALEntry>(l)) } i=i+1 } return out }
+// idempotent apply: only txId > watermark
+applyWAL(List<WALEntry> wal, Int watermark): List<WALEntry> { var out=listOf<WALEntry>(); var i=0; while(i<wal.size()){ if(wal.get(i).txId > watermark){ out.add(wal.get(i)) } i=i+1 } return out }
+main() {
+    var walPath="modulo-08-data/07-cdc/wal.jsonl"
+    File(walPath).writeText("")
+    appendWAL(walPath, WALEntry(101,"insert","tx101"))
+    appendWAL(walPath, WALEntry(102,"insert","tx102"))
+    var wal=readWAL(walPath); println("wal size: "+wal.size().toString())
+    var toApply=applyWAL(wal, 101); println("toApply after watermark 101: "+toApply.size().toString())
+    // compaction: keep only last entry per txId (simulate)
+    var compactPath="modulo-08-data/07-cdc/wal_compacted.jsonl"
+    var sb=""; var i=0; while(i<toApply.size()){ if(i>0){sb=sb+"\n"} sb=sb+json.encode(toApply.get(i)); i=i+1 } File(compactPath).writeText(sb); println("compacted wrote "+compactPath)
+    File(walPath).delete(); File(compactPath).delete(); println("cleaned")
+}
+
+
+test "wal append and read" { var p="modulo-08-data/07-cdc/test_wal.jsonl"; File(p).writeText(""); appendWAL(p, WALEntry(1,"insert","a")); var wal=readWAL(p); assert(wal.size()==1,"1"); File(p).delete() }
+test "applyWAL idempotent" { var wal=listOf<WALEntry>(); wal.add(WALEntry(101,"insert","a")); wal.add(WALEntry(102,"insert","b")); var out=applyWAL(wal, 101); assert(out.size()==1,"1"); assert(out.get(0).txId==102,"102") }
+test "compaction empty when watermark ahead" { var wal=listOf<WALEntry>(); wal.add(WALEntry(101,"insert","a")); var out=applyWAL(wal, 200); assert(out.size()==0,"0") }

@@ -1,0 +1,295 @@
+// modulo-05-llms/02-tokenizer-chunking/exercise.kof
+//
+// Run with: kof test modulo-05-llms/02-tokenizer-chunking/exercise.kof
+//
+// Self-contained copy of lab.kof with assertions at the bottom.
+
+// ─── helpers (inline copies of shared/strutils.kof) ────────────────────
+
+split(String s, String delim): List<String> {
+    var out = listOf<String>()
+    if (delim.length == 0) {
+        out.add(s)
+        return out
+    }
+    var start = 0
+    var n = s.length
+    var i = 0
+    while (i < n) {
+        if (s.charAt(i) == delim.charAt(0)) {
+            out.add(s.substring(start, i))
+            start = i + 1
+        }
+        i = i + 1
+    }
+    out.add(s.substring(start, n))
+    return out
+}
+
+trim(String s): String {
+    var n = s.length
+    var start = 0
+    while (start < n) {
+        var c = s.charAt(start)
+        if (c != 32 && c != 9 && c != 10 && c != 13) { break }
+        start = start + 1
+    }
+    var end = n
+    while (end > start) {
+        var c = s.charAt(end - 1)
+        if (c != 32 && c != 9 && c != 10 && c != 13) { break }
+        end = end - 1
+    }
+    return s.substring(start, end)
+}
+
+// ─── tokenizer ─────────────────────────────────────────────────────────
+
+isAlnum(Int c): Int {
+    if (c >= 97 && c <= 122) { return 1 }
+    if (c >= 65 && c <= 90) { return 1 }
+    if (c >= 48 && c <= 57) { return 1 }
+    return 0
+}
+
+tokenize(String text): List<String> {
+    var out = listOf<String>()
+    var n = text.length
+    var i = 0
+    var buf = ""
+    while (i < n) {
+        var c = text.charAt(i)
+        if (isAlnum(c) == 1) {
+            buf = buf + text.substring(i, i + 1)
+        } else {
+            if (buf.length > 0) {
+                out.add(buf.toLowerCase())
+                buf = ""
+            }
+            if (c != 32 && c != 9 && c != 10 && c != 13) {
+                out.add(text.substring(i, i + 1))
+            }
+        }
+        i = i + 1
+    }
+    if (buf.length > 0) {
+        out.add(buf.toLowerCase())
+    }
+    return out
+}
+
+wordSplit(String text): List<String> {
+    var out = listOf<String>()
+    var raw = split(text, " ")
+    var n = raw.size()
+    var i = 0
+    while (i < n) {
+        var w = trim(raw.get(i))
+        if (w.length > 0) {
+            out.add(w)
+        }
+        i = i + 1
+    }
+    return out
+}
+
+// ─── vocabulary ────────────────────────────────────────────────────────
+
+record VocabEntry(String token, Int freq)
+
+buildVocab(List<String> tokens): List<VocabEntry> {
+    var vocab = listOf<VocabEntry>()
+    var n = tokens.size()
+    var i = 0
+    while (i < n) {
+        var t = tokens.get(i)
+        var found = 0
+        var j = 0
+        var m = vocab.size()
+        while (j < m) {
+            var e = vocab.get(j)
+            if (e.token == t) {
+                vocab.set(j, VocabEntry(e.token, e.freq + 1))
+                found = 1
+                j = m
+            } else {
+                j = j + 1
+            }
+        }
+        if (found == 0) {
+            vocab.add(VocabEntry(t, 1))
+        }
+        i = i + 1
+    }
+    return vocab
+}
+
+countTokens(String text): Int {
+    return tokenize(text).size()
+}
+
+// ─── chunking ──────────────────────────────────────────────────────────
+
+joinWords(List<String> words, Int start, Int end): String {
+    var sb = ""
+    var i = start
+    while (i < end) {
+        if (i > start) {
+            sb = sb + " "
+        }
+        sb = sb + words.get(i)
+        i = i + 1
+    }
+    return sb
+}
+
+chunkByWords(String text, Int window, Int overlap): List<String> {
+    if (window <= 0) { throw "chunk: window must be > 0" }
+    if (overlap < 0) { throw "chunk: overlap must be >= 0" }
+    if (overlap >= window) { throw "chunk: overlap must be < window" }
+    var words = wordSplit(text)
+    var n = words.size()
+    var out = listOf<String>()
+    if (n == 0) { return out }
+    var step = window - overlap
+    var start = 0
+    while (start < n) {
+        var end = start + window
+        if (end > n) { end = n }
+        out.add(joinWords(words, start, end))
+        if (end == n) { start = n }
+        else { start = start + step }
+    }
+    return out
+}
+
+chunkByChars(String text, Int window, Int overlap): List<String> {
+    if (window <= 0) { throw "chunk: window must be > 0" }
+    if (overlap < 0) { throw "chunk: overlap must be >= 0" }
+    if (overlap >= window) { throw "chunk: overlap must be < window" }
+    var n = text.length
+    var out = listOf<String>()
+    if (n == 0) { return out }
+    var step = window - overlap
+    var start = 0
+    while (start < n) {
+        var end = start + window
+        if (end > n) { end = n }
+        out.add(text.substring(start, end))
+        if (end == n) { start = n }
+        else { start = start + step }
+    }
+    return out
+}
+
+// ─── dataset access ────────────────────────────────────────────────────
+
+record Doc(String id, String title, String body, String lang)
+
+parseDocs(String path): List<Doc> {
+    var raw = File(path).readText()
+    if (raw == null) { throw "docs: cannot read " + path }
+    var lines = split(raw, "\n")
+    var out = listOf<Doc>()
+    var n = lines.size()
+    var i = 0
+    while (i < n) {
+        var line = trim(lines.get(i))
+        if (line.length > 0) {
+            try {
+                out.add(json.decode<Doc>(line))
+            } catch (String e) {
+                println("skip line " + i.toString() + ": parse error")
+            }
+        }
+        i = i + 1
+    }
+    return out
+}
+
+// ─── tests ─────────────────────────────────────────────────────────────
+
+test "tokenize lowercases and splits punctuation" {
+    var toks = tokenize("Hello, World!")
+    assert(toks.size() == 4, "expected 4 tokens, got " + toks.size().toString())
+    assert(toks.get(0) == "hello", "word lowercase")
+    assert(toks.get(1) == ",", "comma is its own token")
+    assert(toks.get(2) == "world", "second word")
+    assert(toks.get(3) == "!", "bang is its own token")
+}
+
+test "countTokens on known sentence" {
+    // "Kof is fast." -> kof, is, fast, .  == 4
+    var c = countTokens("Kof is fast.")
+    assert(c == 4, "expected 4 tokens, got " + c.toString())
+}
+
+test "buildVocab counts frequencies in insertion order" {
+    var toks = listOf<String>()
+    toks.add("a")
+    toks.add("b")
+    toks.add("a")
+    toks.add("c")
+    toks.add("b")
+    toks.add("a")
+    var vocab = buildVocab(toks)
+    assert(vocab.size() == 3, "expected 3 unique tokens")
+    assert(vocab.get(0).token == "a", "first seen first")
+    assert(vocab.get(0).freq == 3, "a appears 3x")
+    assert(vocab.get(1).token == "b", "b second")
+    assert(vocab.get(1).freq == 2, "b appears 2x")
+    assert(vocab.get(2).freq == 1, "c appears 1x")
+}
+
+test "chunkByWords sizes and step" {
+    var text = "w1 w2 w3 w4 w5 w6 w7 w8 w9 w10 w11"
+    var chunks = chunkByWords(text, 4, 2)
+    // step=2 over 11 words: [0..4) [2..6) [4..8) [6..10) [8..11) -> 5 chunks
+    assert(chunks.size() == 5, "expected 5 chunks, got " + chunks.size().toString())
+    assert(wordSplit(chunks.get(0)).size() == 4, "full window")
+    assert(wordSplit(chunks.get(3)).size() == 4, "full window")
+    assert(wordSplit(chunks.get(4)).size() == 3, "short last chunk")
+}
+
+test "chunkByWords overlap lines up" {
+    var text = "w1 w2 w3 w4 w5 w6 w7 w8 w9 w10 w11"
+    var chunks = chunkByWords(text, 4, 2)
+    // last `overlap` words of chunk i == first `overlap` words of chunk i+1
+    var w0 = wordSplit(chunks.get(0))
+    var w1 = wordSplit(chunks.get(1))
+    assert(w0.get(2) == w1.get(0), "overlap word 0")
+    assert(w0.get(3) == w1.get(1), "overlap word 1")
+}
+
+test "chunkByChars sizes and overlap" {
+    var chunks = chunkByChars("abcdefghijk", 4, 2)
+    // step=2 over 11 chars: [0..4) [2..6) [4..8) [6..10) [8..11) -> 5 chunks
+    assert(chunks.size() == 5, "expected 5 chunks, got " + chunks.size().toString())
+    assert(chunks.get(0) == "abcd", "chunk 0")
+    assert(chunks.get(1) == "cdef", "chunk 1 shares 2 chars")
+    assert(chunks.get(2) == "efgh", "chunk 2")
+    assert(chunks.get(4) == "ijk", "short last chunk")
+}
+
+test "chunkByWords rejects overlap >= window" {
+    var threw = 0
+    try {
+        var bad = chunkByWords("a b c", 2, 2)
+        assert(bad.size() == 0, "should not reach")
+    } catch (String e) {
+        threw = 1
+    }
+    assert(threw == 1, "must throw on invalid overlap")
+}
+
+test "docs.jsonl parses and tokenizes" {
+    var docs = parseDocs("datasets/docs.jsonl")
+    assert(docs.size() == 5, "expected 5 docs, got " + docs.size().toString())
+    var total = 0
+    var i = 0
+    while (i < docs.size()) {
+        total = total + countTokens(docs.get(i).title + " " + docs.get(i).body)
+        i = i + 1
+    }
+    assert(total > 50, "corpus must have a reasonable token count, got " + total.toString())
+}

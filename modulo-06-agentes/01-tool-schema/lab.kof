@@ -1,0 +1,186 @@
+// modulo-06-agentes/01-tool-schema/lab.kof
+//
+// Typed tool definitions serialized to JSON Schema (OpenAI / Anthropic
+// "function calling" format) by plain string concatenation. The LLM never
+// sees executable code — only this declarative contract — so the schema is
+// the single source of truth for what the agent may call and with which
+// arguments.
+//
+// Source: shared/strutils.kof
+// Target: JVM (kof run; default target)
+
+// ─── helpers (inline copies of shared/*.kof) ───────────────────────────
+
+// Source: shared/strutils.kof
+split(String s, String delim): List<String> {
+    var out = listOf<String>()
+    if (delim.length == 0) {
+        out.add(s)
+        return out
+    }
+    var start = 0
+    var n = s.length
+    var i = 0
+    while (i < n) {
+        if (s.charAt(i) == delim.charAt(0)) {
+            out.add(s.substring(start, i))
+            start = i + 1
+        }
+        i = i + 1
+    }
+    out.add(s.substring(start, n))
+    return out
+}
+
+trim(String s): String {
+    var n = s.length
+    var start = 0
+    while (start < n) {
+        var c = s.charAt(start)
+        if (c != 32 && c != 9 && c != 10 && c != 13) { break }
+        start = start + 1
+    }
+    var end = n
+    while (end > start) {
+        var c = s.charAt(end - 1)
+        if (c != 32 && c != 9 && c != 10 && c != 13) { break }
+        end = end - 1
+    }
+    return s.substring(start, end)
+}
+
+// ─── domain ────────────────────────────────────────────────────────────
+
+// One typed argument of a tool. `required` uses Int 0/1 because nullable
+// types and Option<T> do not exist in 0.1.3-beta (see LIMITACOES doc);
+// required == 1 means the LLM MUST provide the argument.
+record Param(String name, String type, String description, Int required)
+
+// A tool is a named, documented operation with a typed parameter list.
+// `type` is a Kof type name ("Int", "Double", "String", "Bool") mapped to
+// JSON Schema types by jsonType().
+record Tool(String name, String description, List<Param> params)
+
+// jsonType: map a Kof type name to its JSON Schema equivalent.
+jsonType(String kofType): String {
+    if (kofType == "Int") { return "integer" }
+    if (kofType == "Double") { return "number" }
+    if (kofType == "String") { return "string" }
+    if (kofType == "Bool") { return "boolean" }
+    throw "tool-schema: unsupported param type: " + kofType
+}
+
+// jsonEscape: minimal JSON string escaping (quote, backslash, controls).
+// The generator must be safe for arbitrary description text.
+jsonEscape(String s): String {
+    var out = ""
+    var n = s.length
+    var i = 0
+    while (i < n) {
+        var c = s.charAt(i)
+        if (c == 34) {
+            out = out + "\\\""
+        } else if (c == 92) {
+            out = out + "\\\\"
+        } else if (c == 10) {
+            out = out + "\\n"
+        } else if (c == 13) {
+            out = out + "\\r"
+        } else if (c == 9) {
+            out = out + "\\t"
+        } else {
+            out = out + s.substring(i, i + 1)
+        }
+        i = i + 1
+    }
+    return out
+}
+
+// toJsonSchema(tool): serialize a Tool to a JSON Schema "function"
+// descriptor by string concatenation. No reflection, no json.encode —
+// the shape is fixed by the tool-calling spec, so building it literally
+// keeps full control over field order and formatting.
+//
+// Output shape (OpenAI function-calling style):
+//   {"name":"calculator","description":"...","parameters":{
+//      "type":"object","properties":{"a":{"type":"number","description":"..."}},
+//      "required":["a"]}}
+toJsonSchema(Tool t): String {
+    var sb = ""
+    sb = sb + "{\"name\":\"" + jsonEscape(t.name) + "\""
+    sb = sb + ",\"description\":\"" + jsonEscape(t.description) + "\""
+    sb = sb + ",\"parameters\":{\"type\":\"object\",\"properties\":{"
+    var req = ""
+    var n = t.params.size()
+    var i = 0
+    while (i < n) {
+        var p = t.params.get(i)
+        if (i > 0) {
+            sb = sb + ","
+        }
+        sb = sb + "\"" + jsonEscape(p.name) + "\":{"
+        sb = sb + "\"type\":\"" + jsonType(p.type) + "\""
+        sb = sb + ",\"description\":\"" + jsonEscape(p.description) + "\""
+        sb = sb + "}"
+        if (p.required == 1) {
+            if (req.length > 0) {
+                req = req + ","
+            }
+            req = req + "\"" + jsonEscape(p.name) + "\""
+        }
+        i = i + 1
+    }
+    sb = sb + "},\"required\":[" + req + "]}}"
+    return sb
+}
+
+// ─── example tool catalogue ────────────────────────────────────────────
+
+// calculator: binary arithmetic on two numbers. The LLM picks the op.
+toolCalculator(): Tool {
+    var ps = listOf<Param>()
+    ps.add(Param("a", "Double", "left operand", 1))
+    ps.add(Param("b", "Double", "right operand", 1))
+    ps.add(Param("op", "String", "one of + - * /", 1))
+    return Tool("calculator", "Binary arithmetic: a op b", ps)
+}
+
+// get_customer: filter the customer dataset by city.
+toolGetCustomer(): Tool {
+    var ps = listOf<Param>()
+    ps.add(Param("city", "String", "city code to filter by, e.g. SP", 1))
+    return Tool("get_customer", "Look up customers living in a city", ps)
+}
+
+// fetch_doc: retrieve a document body by id from the docs dataset.
+toolFetchDoc(): Tool {
+    var ps = listOf<Param>()
+    ps.add(Param("id", "String", "document id, e.g. d1", 1))
+    return Tool("fetch_doc", "Fetch a document body by id", ps)
+}
+
+// ─── demo ──────────────────────────────────────────────────────────────
+
+main() {
+    var tools = listOf<Tool>()
+    tools.add(toolCalculator())
+    tools.add(toolGetCustomer())
+    tools.add(toolFetchDoc())
+
+    println("=== tool catalogue as JSON Schema (function calling) ===")
+    var i = 0
+    var n = tools.size()
+    while (i < n) {
+        var t = tools.get(i)
+        println("")
+        println("-- " + t.name + " --")
+        println(toJsonSchema(t))
+        i = i + 1
+    }
+
+    // The schema string is what would be embedded in the LLM request
+    // payload. In later labs (6.2/6.3) the agent loop and the sandbox
+    // dispatcher both consume exactly these declarations.
+    println("")
+    println("schemas generated: " + tools.size().toString())
+}

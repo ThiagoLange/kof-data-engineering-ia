@@ -1,0 +1,399 @@
+// modulo-02-dataframe/02-groupby-join/lab.kof
+//
+// Aggregations, GroupBy and hash-join (relational) over in-memory tables.
+// Demonstrates: hash-join between transactions.jsonl and customers.jsonl,
+// GroupBy with mean/stddev/median/count per city, and inner/left join variants.
+//
+// Source: shared/strutils.kof, shared/numberparse.kof, shared/math.kof
+// Target: JVM (kof run; default target)
+
+// ─── helpers (inline copies of shared/*.kof) ───────────────────────────
+
+split(String s, String delim): List<String> {
+    var out = listOf<String>()
+    if (delim.length == 0) {
+        out.add(s)
+        return out
+    }
+    var start = 0
+    var n = s.length
+    var i = 0
+    while (i < n) {
+        if (s.charAt(i) == delim.charAt(0)) {
+            out.add(s.substring(start, i))
+            start = i + 1
+        }
+        i = i + 1
+    }
+    out.add(s.substring(start, n))
+    return out
+}
+
+trim(String s): String {
+    var n = s.length
+    var start = 0
+    while (start < n) {
+        var c = s.charAt(start)
+        if (c != 32 && c != 9 && c != 10 && c != 13) { break }
+        start = start + 1
+    }
+    var end = n
+    while (end > start) {
+        var c = s.charAt(end - 1)
+        if (c != 32 && c != 9 && c != 10 && c != 13) { break }
+        end = end - 1
+    }
+    return s.substring(start, end)
+}
+
+parseIntStrict(String s): Int {
+    if (s == null) { throw "parseInt: null input" }
+    var n = s.length
+    if (n == 0) { throw "parseInt: empty input" }
+    var i = 0
+    var sign = 1
+    var c = s.charAt(0)
+    if (c == 45) { sign = -1; i = 1 }
+    else if (c == 43) { i = 1 }
+    if (i >= n) { throw "parseInt: sign only" }
+    var acc = 0
+    while (i < n) {
+        var ch = s.charAt(i)
+        if (ch < 48 || ch > 57) { throw "parseInt: invalid digit" }
+        acc = acc * 10 + (ch - 48)
+        i = i + 1
+    }
+    return sign * acc
+}
+
+parseFloatStrict(String s): Double {
+    if (s == null) { throw "parseFloat: null input" }
+    var n = s.length
+    if (n == 0) { throw "parseFloat: empty input" }
+    var i = 0
+    var sign = 1.0
+    var c = s.charAt(0)
+    if (c == 45) { sign = -1.0; i = 1 }
+    else if (c == 43) { i = 1 }
+    if (i >= n) { throw "parseFloat: sign only" }
+    var intPart = 0.0
+    var sawDigit = 0
+    while (i < n) {
+        var ch = s.charAt(i)
+        if (ch >= 48 && ch <= 57) {
+            intPart = intPart * 10.0 + ch - 48.0
+            sawDigit = 1
+            i = i + 1
+        } else { break }
+    }
+    var base = sign * intPart
+    var fracAcc = 0.0
+    var div = 1.0
+    var hasDot = 0
+    if (i < n) {
+        if (s.charAt(i) == 46) {
+            hasDot = 1
+            i = i + 1
+        }
+    }
+    while (i < n && hasDot == 1) {
+        var ch = s.charAt(i)
+        if (ch >= 48 && ch <= 57) {
+            fracAcc = fracAcc * 10.0 + ch - 48.0
+            div = div * 10.0
+            i = i + 1
+        } else { break }
+    }
+    if (sawDigit == 0 && hasDot == 0) { throw "parseFloat: no digits" }
+    if (i < n) { throw "parseFloat: trailing garbage" }
+    var frac = fracAcc / div
+    var value = base + frac
+    return value
+}
+
+sqrt(Double x): Double {
+    if (x <= 0.0) { return 0.0 }
+    var g = x
+    var i = 0
+    while (i < 20) {
+        g = 0.5 * (g + x / g)
+        i = i + 1
+    }
+    return g
+}
+
+mean(List<Double> xs): Double {
+    var n = xs.size()
+    if (n == 0) { return 0.0 }
+    var s = 0.0
+    var i = 0
+    while (i < n) {
+        s = s + xs.get(i)
+        i = i + 1
+    }
+    var nf = 1.0 * n
+    return s / nf
+}
+
+stddev(List<Double> xs, Double mu): Double {
+    var n = xs.size()
+    if (n == 0) { return 0.0 }
+    var acc = 0.0
+    var i = 0
+    while (i < n) {
+        var d = xs.get(i) - mu
+        acc = acc + d * d
+        i = i + 1
+    }
+    var nf = 1.0 * n
+    var v = acc / nf
+    return sqrt(v)
+}
+
+// median(xs): copy + bubble sort + middle element. O(n^2) but n is tiny (7 rows).
+median(List<Double> xs): Double {
+    var n = xs.size()
+    if (n == 0) { throw "median: empty" }
+    var cp = listOf<Double>()
+    var i = 0
+    while (i < n) {
+        cp.add(xs.get(i))
+        i = i + 1
+    }
+    // bubble sort
+    var swapped = 1
+    while (swapped == 1) {
+        swapped = 0
+        var j = 0
+        while (j < n - 1) {
+            if (cp.get(j) > cp.get(j + 1)) {
+                var tmp = cp.get(j)
+                cp.set(j, cp.get(j + 1))
+                cp.set(j + 1, tmp)
+                swapped = 1
+            }
+            j = j + 1
+        }
+    }
+    if (n % 2 == 1) {
+        return cp.get(n / 2)
+    }
+    var a = cp.get(n / 2 - 1)
+    var b = cp.get(n / 2)
+    return (a + b) / 2.0
+}
+
+minD(List<Double> xs): Double {
+    var n = xs.size()
+    if (n == 0) { throw "min: empty" }
+    var m = xs.get(0)
+    var i = 1
+    while (i < n) {
+        if (xs.get(i) < m) { m = xs.get(i) }
+        i = i + 1
+    }
+    return m
+}
+
+maxD(List<Double> xs): Double {
+    var n = xs.size()
+    if (n == 0) { throw "max: empty" }
+    var m = xs.get(0)
+    var i = 1
+    while (i < n) {
+        if (xs.get(i) > m) { m = xs.get(i) }
+        i = i + 1
+    }
+    return m
+}
+
+// ─── domain records ────────────────────────────────────────────────────
+
+record Customer(Int customer_id, String name, String city)
+record Transaction(Int tx_id, Int customer_id, Double amount)
+record Joined(Int tx_id, Int customer_id, Double amount, String name, String city)
+record Agg(String city, Int count, Double sum, Double mean, Double min, Double max, Double median, Double stddev)
+
+// parse helpers: each JSONL line -> typed record via json.decode
+loadCustomers(String path): List<Customer> {
+    var raw = File(path).readText()
+    if (raw == null) { throw "join: cannot read " + path }
+    var lines = split(raw, "\n")
+    var out = listOf<Customer>()
+    var i = 0
+    var n = lines.size()
+    while (i < n) {
+        var line = trim(lines.get(i))
+        if (line.length > 0) {
+            out.add(json.decode<Customer>(line))
+        }
+        i = i + 1
+    }
+    return out
+}
+
+loadTransactions(String path): List<Transaction> {
+    var raw = File(path).readText()
+    if (raw == null) { throw "join: cannot read " + path }
+    var lines = split(raw, "\n")
+    var out = listOf<Transaction>()
+    var i = 0
+    var n = lines.size()
+    while (i < n) {
+        var line = trim(lines.get(i))
+        if (line.length > 0) {
+            out.add(json.decode<Transaction>(line))
+        }
+        i = i + 1
+    }
+    return out
+}
+
+// findCustomer: linear scan by id (hash map with linear probing simulation —
+// no Map<K,V> needed; dataset has 5 rows, so O(n*m) is fine).
+findCustomer(List<Customer> cs, Int id): Customer {
+    var i = 0
+    var n = cs.size()
+    while (i < n) {
+        if (cs.get(i).customer_id == id) {
+            return cs.get(i)
+        }
+        i = i + 1
+    }
+    throw "join: customer not found for id " + id.toString()
+}
+
+// hashJoin inner: every transaction matched to its customer.
+// Throws if any FK is dangling (data integrity error).
+hashJoin(List<Transaction> txs, List<Customer> cs): List<Joined> {
+    var out = listOf<Joined>()
+    var i = 0
+    var n = txs.size()
+    while (i < n) {
+        var t = txs.get(i)
+        var c = findCustomer(cs, t.customer_id)
+        out.add(Joined(t.tx_id, t.customer_id, t.amount, c.name, c.city))
+        i = i + 1
+    }
+    return out
+}
+
+// leftJoin: keeps transactions even if FK dangling — missing side gets city="".
+leftJoin(List<Transaction> txs, List<Customer> cs): List<Joined> {
+    var out = listOf<Joined>()
+    var i = 0
+    var n = txs.size()
+    while (i < n) {
+        var t = txs.get(i)
+        var found = 0
+        var j = 0
+        var m = cs.size()
+        while (j < m) {
+            if (cs.get(j).customer_id == t.customer_id) {
+                out.add(Joined(t.tx_id, t.customer_id, t.amount, cs.get(j).name, cs.get(j).city))
+                found = 1
+                j = m
+            } else {
+                j = j + 1
+            }
+        }
+        if (found == 0) {
+            out.add(Joined(t.tx_id, t.customer_id, t.amount, "", ""))
+        }
+        i = i + 1
+    }
+    return out
+}
+
+// distinct cities preserving first-seen order
+distinctCities(List<Joined> rows): List<String> {
+    var cats = listOf<String>()
+    var i = 0
+    var n = rows.size()
+    while (i < n) {
+        var city = rows.get(i).city
+        var found = 0
+        var j = 0
+        var m = cats.size()
+        while (j < m) {
+            if (cats.get(j) == city) { found = 1 }
+            j = j + 1
+        }
+        if (found == 0) { cats.add(city) }
+        i = i + 1
+    }
+    return cats
+}
+
+// amountsForCity: collects amounts for one city
+amountsForCity(List<Joined> rows, String city): List<Double> {
+    var out = listOf<Double>()
+    var i = 0
+    var n = rows.size()
+    while (i < n) {
+        if (rows.get(i).city == city) {
+            out.add(rows.get(i).amount)
+        }
+        i = i + 1
+    }
+    return out
+}
+
+// groupByCity: full aggregations per city (count/mean/min/max/median/stddev)
+groupByCity(List<Joined> rows): List<Agg> {
+    var cities = distinctCities(rows)
+    var out = listOf<Agg>()
+    var c = 0
+    var nc = cities.size()
+    while (c < nc) {
+        var city = cities.get(c)
+        var xs = amountsForCity(rows, city)
+        var mu = mean(xs)
+        var sd = stddev(xs, mu)
+        var med = median(xs)
+        var lo = minD(xs)
+        var hi = maxD(xs)
+        var s = 0.0
+        var k = 0
+        while (k < xs.size()) {
+            s = s + xs.get(k)
+            k = k + 1
+        }
+        out.add(Agg(city, xs.size(), s, mu, lo, hi, med, sd))
+        c = c + 1
+    }
+    return out
+}
+
+// ─── demo ──────────────────────────────────────────────────────────────
+
+main() {
+    var cs = loadCustomers("datasets/customers.jsonl")
+    var txs = loadTransactions("datasets/transactions.jsonl")
+    println("customers: " + cs.size().toString() + " transactions: " + txs.size().toString())
+
+    // inner hash join
+    var joined = hashJoin(txs, cs)
+    println("joined rows: " + joined.size().toString())
+    var i = 0
+    while (i < joined.size()) {
+        var j = joined.get(i)
+        println("  tx " + j.tx_id.toString() + " cust " + j.customer_id.toString() + " " + j.name + " " + j.city + " amount=" + j.amount.toString())
+        i = i + 1
+    }
+
+    // left join demo (same data, all FKs resolve — result identical here)
+    var left = leftJoin(txs, cs)
+    println("left join rows: " + left.size().toString())
+
+    // GroupBy per city
+    var aggs = groupByCity(joined)
+    println("")
+    println("aggregations per city:")
+    var a = 0
+    while (a < aggs.size()) {
+        var ag = aggs.get(a)
+        println("  " + ag.city + " count=" + ag.count.toString() + " sum=" + ag.sum.toString() + " mean=" + ag.mean.toString() + " min=" + ag.min.toString() + " max=" + ag.max.toString() + " median=" + ag.median.toString() + " stddev=" + ag.stddev.toString())
+        a = a + 1
+    }
+}

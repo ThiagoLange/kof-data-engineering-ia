@@ -1,0 +1,133 @@
+// modulo-01-fundamentos/02-jsonl-schema/lab.kof
+//
+// JSONL pipeline: parse -> validate -> serialize. Each line is decoded
+// into a typed Record; validation checks required fields; output is a
+// re-encoded JSONL with one document per line.
+//
+// Source: shared/strutils.kof
+// Target: JVM (json.encode/decode<T> supported).
+
+// ─── helpers (shared/strutils.kof) ──────────────────────────────────────
+
+split(String s, String delim): List<String> {
+    var out = listOf<String>()
+    var start = 0
+    var n = s.length
+    var i = 0
+    while (i < n) {
+        if (s.charAt(i) == delim.charAt(0)) {
+            out.add(s.substring(start, i))
+            start = i + 1
+        }
+        i = i + 1
+    }
+    out.add(s.substring(start, n))
+    return out
+}
+
+trim(String s): String {
+    var n = s.length
+    var start = 0
+    while (start < n) {
+        var c = s.charAt(start)
+        if (c != 32 && c != 9 && c != 10 && c != 13) { break }
+        start = start + 1
+    }
+    var end = n
+    while (end > start) {
+        var c = s.charAt(end - 1)
+        if (c != 32 && c != 9 && c != 10 && c != 13) { break }
+        end = end - 1
+    }
+    return s.substring(start, end)
+}
+
+// ─── domain ────────────────────────────────────────────────────────────
+
+// Schema version is enforced via validateSchema.
+record Doc(String id, String title, String body, String lang)
+
+// Schema validation. Returns 1 if valid, 0 otherwise. Sets outReason
+// (via side-channel field `reason`).
+record Validation(Int ok, String reason)
+
+validateDoc(Doc d): Validation {
+    if (d.id == null || d.id.length == 0) {
+        return Validation(0, "missing id")
+    }
+    if (d.title == null || d.title.length == 0) {
+        return Validation(0, "missing title")
+    }
+    if (d.body == null) {
+        return Validation(0, "missing body")
+    }
+    if (d.lang == null || d.lang.length == 0) {
+        return Validation(0, "missing lang")
+    }
+    return Validation(1, "ok")
+}
+
+// parseJsonl(path): returns List<Doc> of valid entries; prints skips to stdout.
+parseJsonl(String path): List<Doc> {
+    var raw = File(path).readText()
+    if (raw == null) {
+        throw "jsonl: cannot read " + path
+    }
+    var lines = split(raw, "\n")
+    var out = listOf<Doc>()
+    var n = lines.size()
+    var i = 0
+    while (i < n) {
+        var line = trim(lines.get(i))
+        if (line.length == 0) {
+            i = i + 1
+        } else {
+            try {
+                var d = json.decode<Doc>(line)
+                var v = validateDoc(d)
+                if (v.ok == 1) {
+                    out.add(d)
+                } else {
+                    println("skip line " + i.toString() + ": " + v.reason)
+                }
+            } catch (String e) {
+                println("skip line " + i.toString() + ": parse error")
+            }
+            i = i + 1
+        }
+    }
+    return out
+}
+
+// writeJsonl(path, docs): serializes List<Doc> to JSONL, one per line.
+writeJsonl(String path, List<Doc> docs): Int {
+    var sb = ""
+    var n = docs.size()
+    var i = 0
+    while (i < n) {
+        var line = json.encode(docs.get(i))
+        if (i > 0) {
+            sb = sb + "\n"
+        }
+        sb = sb + line
+        i = i + 1
+    }
+    File(path).writeText(sb)
+    return n
+}
+
+// ─── demo ──────────────────────────────────────────────────────────────
+
+main() {
+    var docs = parseJsonl("datasets/docs.jsonl")
+    println("valid docs: " + docs.size().toString())
+    var i = 0
+    var n = docs.size()
+    while (i < n) {
+        var d = docs.get(i)
+        println(d.id + " | " + d.lang + " | " + d.title)
+        i = i + 1
+    }
+    writeJsonl("datasets/docs.out.jsonl", docs)
+    println("wrote datasets/docs.out.jsonl")
+}

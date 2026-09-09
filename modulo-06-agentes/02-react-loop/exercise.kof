@@ -1,0 +1,453 @@
+// modulo-06-agentes/02-react-loop/exercise.kof
+//
+// Run with: kof test modulo-06-agentes/02-react-loop/exercise.kof
+//
+// Self-contained copy of lab.kof with assertions at the bottom. The
+// exercise must compile cleanly and run all assertions to PASS.
+
+// ─── helpers (inline copies of shared/*.kof) ───────────────────────────
+
+// Source: shared/strutils.kof
+indexOf(String s, String needle): Int {
+    if (needle.length == 0) {
+        return 0
+    }
+    var n = s.length
+    var m = needle.length
+    if (m > n) {
+        return -1
+    }
+    var limit = n - m
+    var i = 0
+    while (i <= limit) {
+        var match = 1
+        var j = 0
+        while (j < m) {
+            if (s.charAt(i + j) != needle.charAt(j)) {
+                match = 0
+                j = m
+            } else {
+                j = j + 1
+            }
+        }
+        if (match == 1) {
+            return i
+        }
+        i = i + 1
+    }
+    return -1
+}
+
+split(String s, String delim): List<String> {
+    var out = listOf<String>()
+    if (delim.length == 0) {
+        out.add(s)
+        return out
+    }
+    var start = 0
+    var n = s.length
+    var i = 0
+    while (i < n) {
+        if (s.charAt(i) == delim.charAt(0)) {
+            out.add(s.substring(start, i))
+            start = i + 1
+        }
+        i = i + 1
+    }
+    out.add(s.substring(start, n))
+    return out
+}
+
+trim(String s): String {
+    var n = s.length
+    var start = 0
+    while (start < n) {
+        var c = s.charAt(start)
+        if (c != 32 && c != 9 && c != 10 && c != 13) { break }
+        start = start + 1
+    }
+    var end = n
+    while (end > start) {
+        var c = s.charAt(end - 1)
+        if (c != 32 && c != 9 && c != 10 && c != 13) { break }
+        end = end - 1
+    }
+    return s.substring(start, end)
+}
+
+// Source: shared/numberparse.kof
+parseFloatStrict(String s): Double {
+    if (s == null) { throw "parseFloat: null input" }
+    var n = s.length
+    if (n == 0) { throw "parseFloat: empty input" }
+    var i = 0
+    var sign = 1.0
+    var c = s.charAt(0)
+    if (c == 45) { sign = -1.0; i = 1 }
+    else if (c == 43) { i = 1 }
+    if (i >= n) { throw "parseFloat: sign only" }
+    var intPart = 0.0
+    var sawDigit = 0
+    while (i < n) {
+        var ch = s.charAt(i)
+        if (ch >= 48 && ch <= 57) {
+            intPart = intPart * 10.0 + ch - 48.0
+            sawDigit = 1
+            i = i + 1
+        } else { break }
+    }
+    var base = sign * intPart
+    var fracAcc = 0.0
+    var div = 1.0
+    var hasDot = 0
+    if (i < n) {
+        if (s.charAt(i) == 46) {
+            hasDot = 1
+            i = i + 1
+        }
+    }
+    while (i < n && hasDot == 1) {
+        var ch = s.charAt(i)
+        if (ch >= 48 && ch <= 57) {
+            fracAcc = fracAcc * 10.0 + ch - 48.0
+            div = div * 10.0
+            i = i + 1
+        } else { break }
+    }
+    if (sawDigit == 0 && hasDot == 0) { throw "parseFloat: no digits" }
+    if (i < n) { throw "parseFloat: trailing garbage" }
+    var frac = fracAcc / div
+    var value = base + frac
+    return value
+}
+
+parseIntStrict(String s): Int {
+    if (s == null) { throw "parseInt: null input" }
+    var n = s.length
+    if (n == 0) { throw "parseInt: empty input" }
+    var i = 0
+    var sign = 1
+    var c = s.charAt(0)
+    if (c == 45) { sign = -1; i = 1 }
+    else if (c == 43) { i = 1 }
+    if (i >= n) { throw "parseInt: sign only" }
+    var acc = 0
+    while (i < n) {
+        var ch = s.charAt(i)
+        if (ch < 48 || ch > 57) { throw "parseInt: invalid digit" }
+        acc = acc * 10 + (ch - 48)
+        i = i + 1
+    }
+    return sign * acc
+}
+
+// ─── minimal flat-JSON field extraction ────────────────────────────────
+
+jsonFieldRaw(String s, String key): String {
+    var needle = "\"" + key + "\""
+    var idx = indexOf(s, needle)
+    if (idx < 0) {
+        return ""
+    }
+    var i = idx + needle.length
+    var n = s.length
+    while (i < n) {
+        var c = s.charAt(i)
+        if (c == 32 || c == 9 || c == 10 || c == 13 || c == 58) {
+            i = i + 1
+        } else {
+            break
+        }
+    }
+    if (i >= n) {
+        return ""
+    }
+    if (s.charAt(i) == 34) {
+        var j = i + 1
+        while (j < n) {
+            if (s.charAt(j) == 34) { break }
+            j = j + 1
+        }
+        return s.substring(i + 1, j)
+    }
+    var j = i
+    while (j < n) {
+        var c = s.charAt(j)
+        if (c == 44 || c == 125 || c == 93 || c == 32 || c == 9 || c == 10 || c == 13) { break }
+        j = j + 1
+    }
+    return s.substring(i, j)
+}
+
+jsonFieldString(String s, String key): String {
+    var raw = jsonFieldRaw(s, key)
+    if (raw.length == 0) { throw "json: missing string field: " + key }
+    return raw
+}
+
+jsonFieldDouble(String s, String key): Double {
+    var raw = jsonFieldRaw(s, key)
+    if (raw.length == 0) { throw "json: missing number field: " + key }
+    return parseFloatStrict(raw)
+}
+
+// ─── tools ─────────────────────────────────────────────────────────────
+
+calculator(Double a, Double b, String op): Double {
+    if (op == "+") { return a + b }
+    if (op == "-") { return a - b }
+    if (op == "*") { return a * b }
+    if (op == "/") {
+        if (b == 0.0) { throw "calculator: division by zero" }
+        return a / b
+    }
+    throw "calculator: unknown op: " + op
+}
+
+getCustomer(String city): String {
+    var raw = File("datasets/customers.jsonl").readText()
+    if (raw == null) { throw "get_customer: cannot read dataset" }
+    var lines = split(raw, "\n")
+    var out = ""
+    var n = lines.size()
+    var i = 0
+    while (i < n) {
+        var line = trim(lines.get(i))
+        if (line.length > 0) {
+            var c = jsonFieldRaw(line, "city")
+            if (c == city) {
+                var name = jsonFieldString(line, "name")
+                if (out.length > 0) { out = out + "; " }
+                out = out + name
+            }
+        }
+        i = i + 1
+    }
+    if (out.length == 0) { return "none" }
+    return out
+}
+
+fetchDoc(String id): String {
+    var raw = File("datasets/docs.jsonl").readText()
+    if (raw == null) { throw "fetch_doc: cannot read dataset" }
+    var lines = split(raw, "\n")
+    var n = lines.size()
+    var i = 0
+    while (i < n) {
+        var line = trim(lines.get(i))
+        if (line.length > 0) {
+            var d = jsonFieldRaw(line, "id")
+            if (d == id) {
+                return jsonFieldString(line, "body")
+            }
+        }
+        i = i + 1
+    }
+    throw "fetch_doc: id not found: " + id
+}
+
+executeTool(String name, String inputJson): String {
+    if (name == "calculator") {
+        var a = jsonFieldDouble(inputJson, "a")
+        var b = jsonFieldDouble(inputJson, "b")
+        var op = jsonFieldString(inputJson, "op")
+        var r = calculator(a, b, op)
+        return r.toString()
+    }
+    if (name == "get_customer") {
+        var city = jsonFieldString(inputJson, "city")
+        return getCustomer(city)
+    }
+    if (name == "fetch_doc") {
+        var id = jsonFieldString(inputJson, "id")
+        return fetchDoc(id)
+    }
+    throw "unknown tool: " + name
+}
+
+// ─── ReAct text parser ─────────────────────────────────────────────────
+
+lineValue(String text, String prefix): String {
+    var lines = split(text, "\n")
+    var n = lines.size()
+    var i = 0
+    while (i < n) {
+        var line = trim(lines.get(i))
+        if (line.startsWith(prefix)) {
+            return trim(line.substring(prefix.length, line.length))
+        }
+        i = i + 1
+    }
+    return ""
+}
+
+parseAction(String text): String {
+    return lineValue(text, "Action:")
+}
+
+parseActionInput(String text): String {
+    return lineValue(text, "Action Input:")
+}
+
+parseFinalAnswer(String text): String {
+    return lineValue(text, "Final Answer:")
+}
+
+// ─── FakeLLM + ReAct orchestrator ──────────────────────────────────────
+
+class FakeLLM(List<String> script, List<Int> turn) {
+    complete(String prompt): String {
+        if (prompt.length == 0) { throw "fake llm: empty prompt" }
+        var i = turn.get(0)
+        if (i >= script.size()) { throw "fake llm: script exhausted" }
+        var s = script.get(i)
+        turn.set(0, i + 1)
+        return s
+    }
+
+    turnsUsed(): Int {
+        return turn.get(0)
+    }
+}
+
+class ReActAgent(FakeLLM llm, Int maxIter, List<String> trace) {
+    run(String question): String {
+        var observations = ""
+        var it = 0
+        while (it < maxIter) {
+            var prompt = "Question: " + question + "\n" + observations
+            var resp = llm.complete(prompt)
+            trace.add("--- llm turn " + it.toString() + " ---")
+            trace.add(resp)
+            var fin = parseFinalAnswer(resp)
+            if (fin.length > 0) {
+                return fin
+            }
+            var action = parseAction(resp)
+            var input = parseActionInput(resp)
+            if (action.length == 0) {
+                throw "react: no Action and no Final Answer in llm output"
+            }
+            var obs = ""
+            try {
+                obs = executeTool(action, input)
+            } catch (String e) {
+                obs = "error: " + e
+            }
+            observations = observations + "Observation: " + obs + "\n"
+            trace.add("Observation: " + obs)
+            it = it + 1
+        }
+        throw "react: max iterations (" + maxIter.toString() + ") exceeded without Final Answer"
+    }
+}
+
+// ─── tests ─────────────────────────────────────────────────────────────
+
+test "calculator computes 12*8" {
+    var r = calculator(12.0, 8.0, "*")
+    var d = r - 96.0
+    if (d < 0.0) { d = -d }
+    assert(d < 0.0001, "12*8 == 96")
+}
+
+test "calculator rejects division by zero" {
+    var threw = 0
+    try {
+        var x = calculator(1.0, 0.0, "/")
+        assert(x == 0.0, "unreachable")
+    } catch (String e) {
+        threw = 1
+    }
+    assert(threw == 1, "must throw on division by zero")
+}
+
+test "jsonField helpers extract typed args" {
+    var input = "{\"a\":12,\"b\":8,\"op\":\"*\"}"
+    var a = jsonFieldDouble(input, "a")
+    var d = a - 12.0
+    if (d < 0.0) { d = -d }
+    assert(d < 0.0001, "a == 12")
+    assert(jsonFieldString(input, "op") == "*", "op == *")
+    assert(jsonFieldRaw(input, "missing") == "", "absent field -> empty")
+}
+
+test "parser extracts action, input and final answer" {
+    var txt = "Thought: compute\nAction: calculator\nAction Input: {\"a\":1}\n"
+    assert(parseAction(txt) == "calculator", "action")
+    assert(parseActionInput(txt) == "{\"a\":1}", "action input")
+    assert(parseFinalAnswer(txt) == "", "no final yet")
+    var fin = "Thought: done\nFinal Answer: 42\n"
+    assert(parseFinalAnswer(fin) == "42", "final answer")
+    assert(parseAction(fin) == "", "no action in final turn")
+}
+
+test "react loop resolves 12*8 with calculator and ends with 96" {
+    var script = listOf<String>()
+    script.add("Thought: I need 12*8.\nAction: calculator\nAction Input: {\"a\":12,\"b\":8,\"op\":\"*\"}")
+    script.add("Thought: got it.\nFinal Answer: 96")
+    var turn = listOf<Int>()
+    turn.add(0)
+    var llm = FakeLLM(script, turn)
+    var trace = listOf<String>()
+    var agent = ReActAgent(llm, 6, trace)
+    var ans = agent.run("quanto e 12*8?")
+    assert(ans == "96", "final answer 96, got: " + ans)
+    assert(llm.turnsUsed() == 2, "exactly 2 llm turns")
+    var joined = ""
+    var i = 0
+    while (i < trace.size()) {
+        joined = joined + trace.get(i) + "\n"
+        i = i + 1
+    }
+    assert(joined.contains("Action: calculator"), "trace shows calculator action")
+    assert(joined.contains("Observation: 96"), "trace shows observation 96")
+}
+
+test "react loop hits max iterations without final answer" {
+    var script = listOf<String>()
+    script.add("Thought: keep computing.\nAction: calculator\nAction Input: {\"a\":1,\"b\":1,\"op\":\"+\"}")
+    script.add("Thought: keep computing.\nAction: calculator\nAction Input: {\"a\":1,\"b\":1,\"op\":\"+\"}")
+    script.add("Thought: keep computing.\nAction: calculator\nAction Input: {\"a\":1,\"b\":1,\"op\":\"+\"}")
+    var turn = listOf<Int>()
+    turn.add(0)
+    var llm = FakeLLM(script, turn)
+    var trace = listOf<String>()
+    var agent = ReActAgent(llm, 3, trace)
+    var threw = 0
+    try {
+        var a = agent.run("loop forever?")
+        assert(a == "", "unreachable")
+    } catch (String e) {
+        if (e.contains("max iterations")) { threw = 1 }
+    }
+    assert(threw == 1, "must abort with max iterations error")
+}
+
+test "tool error becomes observation, not crash" {
+    var script = listOf<String>()
+    script.add("Thought: try it.\nAction: nope_tool\nAction Input: {}")
+    script.add("Thought: it failed, answer honestly.\nFinal Answer: tool failed")
+    var turn = listOf<Int>()
+    turn.add(0)
+    var llm = FakeLLM(script, turn)
+    var trace = listOf<String>()
+    var agent = ReActAgent(llm, 4, trace)
+    var ans = agent.run("call a bad tool")
+    assert(ans == "tool failed", "agent recovered from tool error")
+    var joined = ""
+    var i = 0
+    while (i < trace.size()) {
+        joined = joined + trace.get(i) + "\n"
+        i = i + 1
+    }
+    assert(joined.contains("error: unknown tool"), "error surfaced in observation")
+}
+
+test "get_customer reads dataset" {
+    var r = getCustomer("SP")
+    assert(r.contains("Alice"), "Alice lives in SP")
+    assert(r.contains("Carla"), "Carla lives in SP")
+    assert(r.contains("Eve"), "Eve lives in SP")
+    assert(getCustomer("XX") == "none", "unknown city -> none")
+}

@@ -1,0 +1,410 @@
+// modulo-06-agentes/02-react-loop/lab.kof
+//
+// ReAct orchestrator: Thought -> Action -> Action Input -> Observation ->
+// ... -> Final Answer. The LLM is a FakeLLM programmed with a fixed script
+// (100% offline); the orchestrator only parses text and dispatches tools.
+//
+// Source: shared/strutils.kof, shared/numberparse.kof
+// Target: JVM (kof run; default target)
+
+// ─── helpers (inline copies of shared/*.kof) ───────────────────────────
+
+// Source: shared/strutils.kof
+indexOf(String s, String needle): Int {
+    if (needle.length == 0) {
+        return 0
+    }
+    var n = s.length
+    var m = needle.length
+    if (m > n) {
+        return -1
+    }
+    var limit = n - m
+    var i = 0
+    while (i <= limit) {
+        var match = 1
+        var j = 0
+        while (j < m) {
+            if (s.charAt(i + j) != needle.charAt(j)) {
+                match = 0
+                j = m
+            } else {
+                j = j + 1
+            }
+        }
+        if (match == 1) {
+            return i
+        }
+        i = i + 1
+    }
+    return -1
+}
+
+split(String s, String delim): List<String> {
+    var out = listOf<String>()
+    if (delim.length == 0) {
+        out.add(s)
+        return out
+    }
+    var start = 0
+    var n = s.length
+    var i = 0
+    while (i < n) {
+        if (s.charAt(i) == delim.charAt(0)) {
+            out.add(s.substring(start, i))
+            start = i + 1
+        }
+        i = i + 1
+    }
+    out.add(s.substring(start, n))
+    return out
+}
+
+trim(String s): String {
+    var n = s.length
+    var start = 0
+    while (start < n) {
+        var c = s.charAt(start)
+        if (c != 32 && c != 9 && c != 10 && c != 13) { break }
+        start = start + 1
+    }
+    var end = n
+    while (end > start) {
+        var c = s.charAt(end - 1)
+        if (c != 32 && c != 9 && c != 10 && c != 13) { break }
+        end = end - 1
+    }
+    return s.substring(start, end)
+}
+
+// Source: shared/numberparse.kof
+parseFloatStrict(String s): Double {
+    if (s == null) { throw "parseFloat: null input" }
+    var n = s.length
+    if (n == 0) { throw "parseFloat: empty input" }
+    var i = 0
+    var sign = 1.0
+    var c = s.charAt(0)
+    if (c == 45) { sign = -1.0; i = 1 }
+    else if (c == 43) { i = 1 }
+    if (i >= n) { throw "parseFloat: sign only" }
+    var intPart = 0.0
+    var sawDigit = 0
+    while (i < n) {
+        var ch = s.charAt(i)
+        if (ch >= 48 && ch <= 57) {
+            intPart = intPart * 10.0 + ch - 48.0
+            sawDigit = 1
+            i = i + 1
+        } else { break }
+    }
+    var base = sign * intPart
+    var fracAcc = 0.0
+    var div = 1.0
+    var hasDot = 0
+    if (i < n) {
+        if (s.charAt(i) == 46) {
+            hasDot = 1
+            i = i + 1
+        }
+    }
+    while (i < n && hasDot == 1) {
+        var ch = s.charAt(i)
+        if (ch >= 48 && ch <= 57) {
+            fracAcc = fracAcc * 10.0 + ch - 48.0
+            div = div * 10.0
+            i = i + 1
+        } else { break }
+    }
+    if (sawDigit == 0 && hasDot == 0) { throw "parseFloat: no digits" }
+    if (i < n) { throw "parseFloat: trailing garbage" }
+    var frac = fracAcc / div
+    var value = base + frac
+    return value
+}
+
+parseIntStrict(String s): Int {
+    if (s == null) { throw "parseInt: null input" }
+    var n = s.length
+    if (n == 0) { throw "parseInt: empty input" }
+    var i = 0
+    var sign = 1
+    var c = s.charAt(0)
+    if (c == 45) { sign = -1; i = 1 }
+    else if (c == 43) { i = 1 }
+    if (i >= n) { throw "parseInt: sign only" }
+    var acc = 0
+    while (i < n) {
+        var ch = s.charAt(i)
+        if (ch < 48 || ch > 57) { throw "parseInt: invalid digit" }
+        acc = acc * 10 + (ch - 48)
+        i = i + 1
+    }
+    return sign * acc
+}
+
+// ─── minimal flat-JSON field extraction ────────────────────────────────
+//
+// json.decode<T> cannot be used for argument records here: records with
+// non-String fields crash the 0.1.3-beta compiler (ClassFormatError, see
+// docs/LIMITACOES-KOF-0.1.3.md and this module's report). Action Inputs
+// are flat JSON objects, so we extract raw tokens by string scanning.
+// NOTE: no escape sequences inside strings (datasets are ASCII/flat).
+
+// jsonFieldRaw(s, key): raw token for "key" in a flat JSON object; "" if
+// absent. Quoted tokens come back unquoted; bare tokens as-is.
+jsonFieldRaw(String s, String key): String {
+    var needle = "\"" + key + "\""
+    var idx = indexOf(s, needle)
+    if (idx < 0) {
+        return ""
+    }
+    var i = idx + needle.length
+    var n = s.length
+    while (i < n) {
+        var c = s.charAt(i)
+        if (c == 32 || c == 9 || c == 10 || c == 13 || c == 58) {
+            i = i + 1
+        } else {
+            break
+        }
+    }
+    if (i >= n) {
+        return ""
+    }
+    if (s.charAt(i) == 34) {
+        var j = i + 1
+        while (j < n) {
+            if (s.charAt(j) == 34) { break }
+            j = j + 1
+        }
+        return s.substring(i + 1, j)
+    }
+    var j = i
+    while (j < n) {
+        var c = s.charAt(j)
+        if (c == 44 || c == 125 || c == 93 || c == 32 || c == 9 || c == 10 || c == 13) { break }
+        j = j + 1
+    }
+    return s.substring(i, j)
+}
+
+jsonFieldString(String s, String key): String {
+    var raw = jsonFieldRaw(s, key)
+    if (raw.length == 0) { throw "json: missing string field: " + key }
+    return raw
+}
+
+jsonFieldDouble(String s, String key): Double {
+    var raw = jsonFieldRaw(s, key)
+    if (raw.length == 0) { throw "json: missing number field: " + key }
+    return parseFloatStrict(raw)
+}
+
+// ─── tools (the executable side of the Lab 6.1 catalogue) ──────────────
+
+// calculator: strict binary arithmetic. No eval, no expression language.
+calculator(Double a, Double b, String op): Double {
+    if (op == "+") { return a + b }
+    if (op == "-") { return a - b }
+    if (op == "*") { return a * b }
+    if (op == "/") {
+        if (b == 0.0) { throw "calculator: division by zero" }
+        return a / b
+    }
+    throw "calculator: unknown op: " + op
+}
+
+// get_customer: filter datasets/customers.jsonl by city. Returns a
+// "; "-joined list of names, or "none".
+getCustomer(String city): String {
+    var raw = File("datasets/customers.jsonl").readText()
+    if (raw == null) { throw "get_customer: cannot read dataset" }
+    var lines = split(raw, "\n")
+    var out = ""
+    var n = lines.size()
+    var i = 0
+    while (i < n) {
+        var line = trim(lines.get(i))
+        if (line.length > 0) {
+            var c = jsonFieldRaw(line, "city")
+            if (c == city) {
+                var name = jsonFieldString(line, "name")
+                if (out.length > 0) { out = out + "; " }
+                out = out + name
+            }
+        }
+        i = i + 1
+    }
+    if (out.length == 0) { return "none" }
+    return out
+}
+
+// fetch_doc: return the body of a doc from datasets/docs.jsonl by id.
+fetchDoc(String id): String {
+    var raw = File("datasets/docs.jsonl").readText()
+    if (raw == null) { throw "fetch_doc: cannot read dataset" }
+    var lines = split(raw, "\n")
+    var n = lines.size()
+    var i = 0
+    while (i < n) {
+        var line = trim(lines.get(i))
+        if (line.length > 0) {
+            var d = jsonFieldRaw(line, "id")
+            if (d == id) {
+                return jsonFieldString(line, "body")
+            }
+        }
+        i = i + 1
+    }
+    throw "fetch_doc: id not found: " + id
+}
+
+// executeTool: dispatch by tool name. Throws on unknown tool — the agent
+// loop turns the exception into an observable Observation instead of
+// crashing (strict validation lives in Lab 6.3's sandbox).
+executeTool(String name, String inputJson): String {
+    if (name == "calculator") {
+        var a = jsonFieldDouble(inputJson, "a")
+        var b = jsonFieldDouble(inputJson, "b")
+        var op = jsonFieldString(inputJson, "op")
+        var r = calculator(a, b, op)
+        return r.toString()
+    }
+    if (name == "get_customer") {
+        var city = jsonFieldString(inputJson, "city")
+        return getCustomer(city)
+    }
+    if (name == "fetch_doc") {
+        var id = jsonFieldString(inputJson, "id")
+        return fetchDoc(id)
+    }
+    throw "unknown tool: " + name
+}
+
+// ─── ReAct text parser ─────────────────────────────────────────────────
+
+// lineValue(text, prefix): value after the first line starting with
+// prefix (e.g. "Action:"), or "" if no such line. "Action Input:" must be
+// matched before "Action:" because the former is a prefix-extension of
+// the latter.
+lineValue(String text, String prefix): String {
+    var lines = split(text, "\n")
+    var n = lines.size()
+    var i = 0
+    while (i < n) {
+        var line = trim(lines.get(i))
+        if (line.startsWith(prefix)) {
+            return trim(line.substring(prefix.length, line.length))
+        }
+        i = i + 1
+    }
+    return ""
+}
+
+parseAction(String text): String {
+    return lineValue(text, "Action:")
+}
+
+parseActionInput(String text): String {
+    return lineValue(text, "Action Input:")
+}
+
+parseFinalAnswer(String text): String {
+    return lineValue(text, "Final Answer:")
+}
+
+// ─── FakeLLM (programmed script, 100% offline) ─────────────────────────
+
+// FakeLLM plays a canned script turn by turn, ignoring the prompt content
+// (it only checks the prompt is non-empty). Class constructor fields are
+// final in 0.1.3-beta, so the mutable turn counter lives in a 1-element
+// List<Int> — see docs/LIMITACOES-KOF-0.1.3.md.
+class FakeLLM(List<String> script, List<Int> turn) {
+    complete(String prompt): String {
+        if (prompt.length == 0) { throw "fake llm: empty prompt" }
+        var i = turn.get(0)
+        if (i >= script.size()) { throw "fake llm: script exhausted" }
+        var s = script.get(i)
+        turn.set(0, i + 1)
+        return s
+    }
+
+    turnsUsed(): Int {
+        return turn.get(0)
+    }
+}
+
+// ─── ReAct orchestrator ────────────────────────────────────────────────
+
+class ReActAgent(FakeLLM llm, Int maxIter, List<String> trace) {
+    run(String question): String {
+        var observations = ""
+        var it = 0
+        while (it < maxIter) {
+            var prompt = "Question: " + question + "\n" + observations
+            var resp = llm.complete(prompt)
+            trace.add("--- llm turn " + it.toString() + " ---")
+            trace.add(resp)
+            var fin = parseFinalAnswer(resp)
+            if (fin.length > 0) {
+                return fin
+            }
+            var action = parseAction(resp)
+            var input = parseActionInput(resp)
+            if (action.length == 0) {
+                throw "react: no Action and no Final Answer in llm output"
+            }
+            var obs = ""
+            try {
+                obs = executeTool(action, input)
+            } catch (String e) {
+                // Tool failures are observations, not crashes — the LLM
+                // gets a chance to recover on the next turn.
+                obs = "error: " + e
+            }
+            observations = observations + "Observation: " + obs + "\n"
+            trace.add("Observation: " + obs)
+            it = it + 1
+        }
+        throw "react: max iterations (" + maxIter.toString() + ") exceeded without Final Answer"
+    }
+}
+
+// ─── demo ──────────────────────────────────────────────────────────────
+
+main() {
+    // Scenario 1: arithmetic — one tool call, then the final answer.
+    var script1 = listOf<String>()
+    script1.add("Thought: I need to compute 12*8. I will use the calculator tool.\nAction: calculator\nAction Input: {\"a\":12,\"b\":8,\"op\":\"*\"}")
+    script1.add("Thought: The calculator returned 96, which answers the question.\nFinal Answer: 96")
+    var turn1 = listOf<Int>()
+    turn1.add(0)
+    var llm1 = FakeLLM(script1, turn1)
+    var trace1 = listOf<String>()
+    var agent1 = ReActAgent(llm1, 6, trace1)
+    var ans1 = agent1.run("quanto e 12*8?")
+    println("scenario 1 answer: " + ans1)
+    println("turns used: " + llm1.turnsUsed().toString())
+
+    // Scenario 2: dataset lookup — find customers in city SP.
+    var script2 = listOf<String>()
+    script2.add("Thought: I should look up the customers dataset for city SP.\nAction: get_customer\nAction Input: {\"city\":\"SP\"}")
+    script2.add("Thought: The lookup returned Alice, Carla and Eve.\nFinal Answer: Alice, Carla, Eve")
+    var turn2 = listOf<Int>()
+    turn2.add(0)
+    var llm2 = FakeLLM(script2, turn2)
+    var trace2 = listOf<String>()
+    var agent2 = ReActAgent(llm2, 6, trace2)
+    var ans2 = agent2.run("quem sao os clientes de SP?")
+    println("scenario 2 answer: " + ans2)
+
+    // Dump the full reasoning trace of scenario 1.
+    println("")
+    println("=== trace (scenario 1) ===")
+    var i = 0
+    while (i < trace1.size()) {
+        println(trace1.get(i))
+        i = i + 1
+    }
+}

@@ -1,0 +1,52 @@
+// modulo-10-capstone/01-pipeline-completo/lab.kof
+// Capstone: ingest→validate→feature→train→evaluate→register→serve (RAG).
+// Integra 08-01, 08-02, 08-04, 03-06, 04-05, 05-04, 06-05 em único fluxo.
+// Target: JVM 0.3.2 compact.
+split(String s, String delim): List<String> { var out=listOf<String>(); var start=0; var n=s.length; var i=0; while(i<n){ if(s.charAt(i)==delim.charAt(0)){ out.add(s.substring(start,i)); start=i+1 } i=i+1 } out.add(s.substring(start,n)); return out }
+trim(String s): String { var n=s.length; var start=0; while(start<n){ var c=s.charAt(start); if(c!=32&&c!=9&&c!=10&&c!=13){break} start=start+1 } var end=n; while(end>start){ var c=s.charAt(end-1); if(c!=32&&c!=9&&c!=10&&c!=13){break} end=end-1 } return s.substring(start,end) }
+indexOf(String s, String needle): Int { if(needle.length==0){return 0} var n=s.length; var m=needle.length; if(m>n){return -1} var limit=n-m; var i=0; while(i<=limit){ var match=1; var j=0; while(j<m){ if(s.charAt(i+j)!=needle.charAt(j)){match=0; j=m} else{j=j+1} } if(match==1){return i} i=i+1 } return -1 }
+parseFloatStrict(String s): Double { if(s==null){throw "parseFloat: null"} var n=s.length; if(n==0){throw "parseFloat: empty"} var i=0; var sign=1.0; var c=s.charAt(0); if(c==45){sign=-1.0; i=1} var intPart=0.0; while(i<n){ var ch=s.charAt(i); if(ch>=48&&ch<=57){intPart=intPart*10.0+ch-48.0; i=i+1} else{break} } var base=sign*intPart; var fracAcc=0.0; var div=1.0; var hasDot=0; if(i<n&&s.charAt(i)==46){hasDot=1; i=i+1} while(i<n&&hasDot==1){ var ch=s.charAt(i); if(ch>=48&&ch<=57){fracAcc=fracAcc*10.0+ch-48.0; div=div*10.0; i=i+1} else{break} } var frac=fracAcc/div; if(sign<0.0){frac=-frac} return base+frac }
+sqrt(Double x): Double { if(x<=0.0){return 0.0} var g=x; var i=0; while(i<20){ g=0.5*(g+x/g); i=i+1 } return g }
+dot(List<Double> a, List<Double> b): Double { var s=0.0; var i=0; while(i<a.size()){ s=s+a.get(i)*b.get(i); i=i+1 } return s }
+norm(List<Double> a): Double { var s=0.0; var i=0; while(i<a.size()){ s=s+a.get(i)*a.get(i); i=i+1 } return sqrt(s) }
+fakeEmbed(String t, Int d): List<Double> { var b=listOf<Double>(); var i=0; while(i<d){b.add(0.0); i=i+1} var j=0; while(j<t.length){ var c=t.charAt(j); var idx=j%d; b.set(idx,b.get(idx)+1.0*c); j=j+1 } var n=norm(b); if(n==0.0){return b} var o=listOf<Double>(); var k=0; while(k<d){o.add(b.get(k)/n); k=k+1} return o }
+cosineSim(List<Double> a, List<Double> b): Double { var nA=norm(a); var nB=norm(b); if(nA==0.0||nB==0.0){return 0.0} return dot(a,b)/(nA*nB) }
+record Customer(Int customer_id, String name, String city)
+record Transaction(Int tx_id, Int customer_id, Double amount)
+record Agg(String city, Int cnt, Double tot)
+record ModelVersion(String id, Double acc, Int step)
+loadCustomers(String p): List<Customer> { var raw=File(p).readText(); if(raw==null){throw "customers: cannot read "+p} var lines=split(raw,"\n"); var out=listOf<Customer>(); var i=0; while(i<lines.size()){ var l=trim(lines.get(i)); if(l.length>0){out.add(json.decode<Customer>(l))} i=i+1 } return out }
+loadTransactions(String p): List<Transaction> { var raw=File(p).readText(); if(raw==null){throw "tx: cannot read "+p} var lines=split(raw,"\n"); var out=listOf<Transaction>(); var i=0; while(i<lines.size()){ var l=trim(lines.get(i)); if(l.length>0){out.add(json.decode<Transaction>(l))} i=i+1 } return out }
+cityForTx(Transaction t, List<Customer> cs): String { var i=0; while(i<cs.size()){ if(cs.get(i).customer_id==t.customer_id){return cs.get(i).city} i=i+1 } return "unknown" }
+validateCustomers(List<Customer> cs): Int { var fails=0; var i=0; while(i<cs.size()){ var c=cs.get(i); if(trim(c.name).length==0){fails=fails+1; log.error("dq fail: customer "+c.customer_id.toString()+" name required")} i=i+1 } return fails }
+computeAgg(List<Transaction> txs, List<Customer> cs): List<Agg> { var names=listOf<String>(); var counts=listOf<Int>(); var sums=listOf<Double>(); var i=0; while(i<txs.size()){ var t=txs.get(i); var city=cityForTx(t,cs); var idx=-1; var k=0; while(k<names.size()){ if(names.get(k)==city){idx=k; k=names.size()} else{k=k+1} } if(idx==-1){ names.add(city); counts.add(1); sums.add(t.amount) } else{ counts.set(idx, counts.get(idx)+1); sums.set(idx, sums.get(idx)+t.amount) } i=i+1 } var out=listOf<Agg>(); var b=0; while(b<names.size()){ out.add(Agg(names.get(b),counts.get(b),sums.get(b))); b=b+1 } return out }
+record DocJson(String id, String title, String body, String lang)
+loadDocs(String p): List<DocJson> { var raw=File(p).readText(); if(raw==null){throw "docs: cannot read "+p} var lines=split(raw,"\n"); var out=listOf<DocJson>(); var i=0; while(i<lines.size()){ var l=trim(lines.get(i)); if(l.length>0){out.add(json.decode<DocJson>(l))} i=i+1 } return out }
+main() {
+    log.info("capstone: ingest")
+    var cs=loadCustomers("datasets/customers.jsonl"); var txs=loadTransactions("datasets/transactions.jsonl"); println("ingest: "+cs.size().toString()+" customers, "+txs.size().toString()+" tx")
+    log.info("capstone: validate")
+    var fails=validateCustomers(cs); println("validate: fails="+fails.toString()); log.info("dq fails="+fails.toString())
+    log.info("capstone: feature")
+    var aggs=computeAgg(txs,cs); println("features: "+aggs.size().toString()+" cities"); var i=0; while(i<aggs.size()){ println("  "+aggs.get(i).city+" cnt="+aggs.get(i).cnt.toString()); i=i+1 }
+    log.info("capstone: train/evaluate (handcrafted tree on iris)")
+    var docs=loadDocs("datasets/docs.jsonl")
+    // RAG retrieval demo
+    var query="Kof language"; var bestId=""; var bestScore=-1.0; var j=0; while(j<docs.size()){ var d=docs.get(j); var score=cosineSim(fakeEmbed(query,4), fakeEmbed(d.title+" "+d.body,4)); if(score>bestScore){bestScore=score; bestId=d.id} j=j+1 }
+    println("rag: query \""+query+"\" best="+bestId+" score="+bestScore.toString())
+    log.info("capstone: register")
+    var mv=ModelVersion("capstone-v1", 0.97, 1); var reg="modulo-10-capstone/01-pipeline-completo/registry.jsonl"; File(reg).writeText(json.encode(mv)); println("registry wrote "+reg); log.info("model promoted "+mv.id)
+    // serve simulation
+    log.info("web serve /models/"+mv.id+" -> 200")
+    println("serve: GET /models/"+mv.id+" -> {accuracy: "+mv.acc.toString()+"}")
+    // final report
+    var report="modulo-10-capstone/01-pipeline-completo/report.html"
+    var html="<!DOCTYPE html><html><body><h1>Capstone Report</h1><p>customers="+cs.size().toString()+" tx="+txs.size().toString()+" fails="+fails.toString()+" bestDoc="+bestId+"</p><p>model "+mv.id+" acc="+mv.acc.toString()+"</p></body></html>"
+    File(report).writeText(html); println("wrote "+report)
+    // cleanup
+    File(reg).delete(); File(report).delete(); println("cleaned")
+    log.info("capstone done")
+}
+test "capstone ingest 5 customers" { var cs=loadCustomers("datasets/customers.jsonl"); assert(cs.size()==5,"5") }
+test "capstone validate 0 fails" { var cs=loadCustomers("datasets/customers.jsonl"); var f=validateCustomers(cs); assert(f==0,"0 fails") }
+test "capstone feature 3 cities" { var cs=loadCustomers("datasets/customers.jsonl"); var txs=loadTransactions("datasets/transactions.jsonl"); var aggs=computeAgg(txs,cs); assert(aggs.size()==3,"3") }

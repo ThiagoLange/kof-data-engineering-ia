@@ -1,0 +1,27 @@
+// modulo-06-agentes/06-avaliacao/lab.kof
+// Avaliação de Agente: replay ReAct com métricas success@k, tool_error_rate.
+// Target: JVM 0.3.2 compact.
+split(String s, String delim): List<String> { var out=listOf<String>(); var start=0; var n=s.length; var i=0; while(i<n){ if(s.charAt(i)==delim.charAt(0)){ out.add(s.substring(start,i)); start=i+1 } i=i+1 } out.add(s.substring(start,n)); return out }
+trim(String s): String { var n=s.length; var start=0; while(start<n){ var c=s.charAt(start); if(c!=32&&c!=9&&c!=10&&c!=13){break} start=start+1 } var end=n; while(end>start){ var c=s.charAt(end-1); if(c!=32&&c!=9&&c!=10&&c!=13){break} end=end-1 } return s.substring(start,end) }
+indexOf(String s, String needle): Int { if(needle.length==0){return 0} var n=s.length; var m=needle.length; if(m>n){return -1} var limit=n-m; var i=0; while(i<=limit){ var match=1; var j=0; while(j<m){ if(s.charAt(i+j)!=needle.charAt(j)){match=0; j=m} else{j=j+1} } if(match==1){return i} i=i+1 } return -1 }
+record Trace(String thought, String action, String observation, String finalAnswer)
+record Metrics(Int total, Int success, Double errorRate)
+evalTraces(List<Trace> traces): Metrics { var total=traces.size(); var succ=0; var errs=0; var i=0; while(i<traces.size()){ var t=traces.get(i); if(t.finalAnswer.length>0 && indexOf(t.observation,"error")==-1){ succ=succ+1 } if(indexOf(t.observation,"error")!=-1){ errs=errs+1 } i=i+1 } var rate=0.0; if(total>0){ rate=(1.0*errs)/(1.0*total) } return Metrics(total, succ, rate) }
+main() {
+    var traces=listOf<Trace>()
+    traces.add(Trace("need calc","calculator","96","96"))
+    traces.add(Trace("need calc","calculator","error: division by zero",""))
+    traces.add(Trace("need doc","fetch_doc","Kof is typed","Kof"))
+    var m=evalTraces(traces)
+    println("total="+m.total.toString()+" success="+m.success.toString()+" errorRate="+m.errorRate.toString())
+    var successRate=(1.0*m.success)/(1.0*m.total)
+    println("success@k: "+successRate.toString())
+    log.info("agent eval success="+m.success.toString()+" total="+m.total.toString())
+    // log per trace
+    var i=0; while(i<traces.size()){ var t=traces.get(i); log.info("trace "+i.toString()+" action="+t.action+" obs="+t.observation); i=i+1 }
+}
+
+
+test "evalTraces success" { var tr=listOf<Trace>(); tr.add(Trace("t","calc","96","96")); var m=evalTraces(tr); assert(m.success==1,"1") }
+test "evalTraces error rate" { var tr=listOf<Trace>(); tr.add(Trace("t","calc","error: div0","")); tr.add(Trace("t","calc","ok","ans")); var m=evalTraces(tr); var d=m.errorRate-0.5; if(d<0.0){d=-d} assert(d<0.001,"0.5") }
+test "evalTraces all success" { var tr=listOf<Trace>(); tr.add(Trace("a","calc","96","96")); tr.add(Trace("b","fetch","Kof","Kof")); var m=evalTraces(tr); assert(m.success==2,"2") }

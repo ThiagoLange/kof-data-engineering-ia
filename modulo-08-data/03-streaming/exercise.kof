@@ -1,0 +1,42 @@
+// modulo-08-data/03-streaming/lab.kof
+// Streaming com kof.mq: pub/sub + tumbling window 5s (simulado com time.sleep + List buffer).
+// Target: JVM 0.3.2 compact.
+split(String s, String delim): List<String> { var out=listOf<String>(); var start=0; var n=s.length; var i=0; while(i<n){ if(s.charAt(i)==delim.charAt(0)){ out.add(s.substring(start,i)); start=i+1 } i=i+1 } out.add(s.substring(start,n)); return out }
+trim(String s): String { var n=s.length; var start=0; while(start<n){ var c=s.charAt(start); if(c!=32&&c!=9&&c!=10&&c!=13){break} start=start+1 } var end=n; while(end>start){ var c=s.charAt(end-1); if(c!=32&&c!=9&&c!=10&&c!=13){break} end=end-1 } return s.substring(start,end) }
+record Transaction(Int tx_id, Int customer_id, Double amount)
+// Simple in-memory MQ: List as queue
+class SimpleMQ(List<String> queue) {
+    publish(String msg): Int { queue.add(msg); return queue.size() }
+    consume(): String { if(queue.size()==0){return ""} var m=queue.get(0); var nxt=listOf<String>(); var i=1; while(i<queue.size()){ nxt.add(queue.get(i)); i=i+1 } queue.set(0,""); var tmp=listOf<String>(); var k=0; while(k<nxt.size()){ tmp.add(nxt.get(k)); k=k+1 } while(queue.size()>0){ queue.remove(0) } var j=0; while(j<tmp.size()){ queue.add(tmp.get(j)); j=j+1 } return m }
+    size(): Int { return queue.size() }
+}
+makeMQ(): SimpleMQ { return SimpleMQ(listOf<String>()) }
+loadTransactions(String p): List<Transaction> { var raw=File(p).readText(); if(raw==null){throw "tx: cannot read "+p} var lines=split(raw,"\n"); var out=listOf<Transaction>(); var i=0; while(i<lines.size()){ var l=trim(lines.get(i)); if(l.length>0){out.add(json.decode<Transaction>(l))} i=i+1 } return out }
+main() {
+    var mq=makeMQ()
+    var txs=loadTransactions("datasets/transactions.jsonl")
+    println("publishing "+txs.size().toString()+" transactions to MQ")
+    var i=0; while(i<txs.size()){ var t=txs.get(i); mq.publish(json.encode(t)); i=i+1 }
+    println("queue size after publish: "+mq.size().toString())
+    // tumbling window: consume 3 then aggregate
+    var windowSize=3; var win=listOf<Transaction>(); var consumed=0; var windows=0
+    while(mq.size()>0){
+        var msg=mq.consume(); consumed=consumed+1
+        // decode back
+        var t=json.decode<Transaction>(msg)
+        win.add(t)
+        if(win.size()==windowSize || mq.size()==0){
+            var sum=0.0; var k=0; while(k<win.size()){ sum=sum+win.get(k).amount; k=k+1 }
+            windows=windows+1
+            log.info("window "+windows.toString()+" size="+win.size().toString()+" sum="+sum.toString())
+            println("window "+windows.toString()+": "+win.size().toString()+" tx sum="+sum.toString())
+            win=listOf<Transaction>()
+        }
+    }
+    println("total windows: "+windows.toString()+" consumed: "+consumed.toString())
+}
+
+
+test "mq publish and consume" { var mq=makeMQ(); mq.publish("hello"); assert(mq.size()==1,"1"); var m=mq.consume(); assert(m=="hello","hello"); assert(mq.size()==0,"0") }
+test "loadTransactions 7 rows" { var txs=loadTransactions("datasets/transactions.jsonl"); assert(txs.size()==7,"7") }
+test "window sum" { var win=listOf<Transaction>(); win.add(Transaction(1,1,10.0)); win.add(Transaction(2,1,20.0)); var sum=0.0; var i=0; while(i<win.size()){ sum=sum+win.get(i).amount; i=i+1 } assert(sum==30.0,"30") }

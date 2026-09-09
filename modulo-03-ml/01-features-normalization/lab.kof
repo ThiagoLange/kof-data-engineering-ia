@@ -1,0 +1,338 @@
+// modulo-03-ml/01-features-normalization/lab.kof
+//
+// Feature scaling and one-hot encoding. Pure functions over List<Double>:
+//   - zscore(xs)      -> standardization (mean 0, std 1)
+//   - minmax(xs)      -> rescaling to [0, 1]
+//   - oneHot(labels)  -> manual one-hot matrix for a categorical column
+// Applied to datasets/houses.tsv (numeric) and datasets/iris.csv (categorical).
+//
+// Source: shared/strutils.kof, shared/numberparse.kof, shared/math.kof
+// Target: JVM (kof run; default target)
+
+// ─── helpers (inline copies of shared/*.kof) ───────────────────────────
+
+// split(s, delim): single-char delimiter; preserves empty fields.
+// Source: shared/strutils.kof
+split(String s, String delim): List<String> {
+    var out = listOf<String>()
+    if (delim.length == 0) {
+        out.add(s)
+        return out
+    }
+    var start = 0
+    var n = s.length
+    var i = 0
+    while (i < n) {
+        if (s.charAt(i) == delim.charAt(0)) {
+            out.add(s.substring(start, i))
+            start = i + 1
+        }
+        i = i + 1
+    }
+    out.add(s.substring(start, n))
+    return out
+}
+
+// trim ASCII whitespace. Source: shared/strutils.kof
+trim(String s): String {
+    var n = s.length
+    var start = 0
+    while (start < n) {
+        var c = s.charAt(start)
+        if (c != 32 && c != 9 && c != 10 && c != 13) { break }
+        start = start + 1
+    }
+    var end = n
+    while (end > start) {
+        var c = s.charAt(end - 1)
+        if (c != 32 && c != 9 && c != 10 && c != 13) { break }
+        end = end - 1
+    }
+    return s.substring(start, end)
+}
+
+// Strict numeric parsers (throw on malformed input).
+// Source: shared/numberparse.kof
+parseFloatStrict(String s): Double {
+    if (s == null) { throw "parseFloat: null input" }
+    var n = s.length
+    if (n == 0) { throw "parseFloat: empty input" }
+    var i = 0
+    var sign = 1.0
+    var c = s.charAt(0)
+    if (c == 45) { sign = -1.0; i = 1 }
+    else if (c == 43) { i = 1 }
+    if (i >= n) { throw "parseFloat: sign only" }
+    var intPart = 0.0
+    var sawDigit = 0
+    while (i < n) {
+        var ch = s.charAt(i)
+        if (ch >= 48 && ch <= 57) {
+            intPart = intPart * 10.0 + ch - 48.0
+            sawDigit = 1
+            i = i + 1
+        } else { break }
+    }
+    var base = sign * intPart
+    var fracAcc = 0.0
+    var div = 1.0
+    var hasDot = 0
+    if (i < n) {
+        if (s.charAt(i) == 46) {
+            hasDot = 1
+            i = i + 1
+        }
+    }
+    while (i < n && hasDot == 1) {
+        var ch = s.charAt(i)
+        if (ch >= 48 && ch <= 57) {
+            fracAcc = fracAcc * 10.0 + ch - 48.0
+            div = div * 10.0
+            i = i + 1
+        } else { break }
+    }
+    if (sawDigit == 0 && hasDot == 0) { throw "parseFloat: no digits" }
+    if (i < n) { throw "parseFloat: trailing garbage" }
+    var frac = fracAcc / div
+    var value = base + frac
+    return value
+}
+
+// sqrt via Newton's method. Source: shared/math.kof (iterations raised
+// from 10 to 40: with g0 = x, large variances (~1e5) need >15 iterations
+// for double precision; 10 leaves ~1.6% error in stddev of z-scores).
+sqrt(Double x): Double {
+    if (x <= 0.0) {
+        return 0.0
+    }
+    var g = x
+    var i = 0
+    while (i < 40) {
+        g = 0.5 * (g + x / g)
+        i = i + 1
+    }
+    return g
+}
+
+// mean(xs): arithmetic mean; 0.0 on empty list. Source: shared/math.kof
+mean(List<Double> xs): Double {
+    var n = xs.size()
+    if (n == 0) {
+        return 0.0
+    }
+    var s = 0.0
+    var i = 0
+    while (i < n) {
+        s = s + xs.get(i)
+        i = i + 1
+    }
+    var nf = 1.0 * n
+    return s / nf
+}
+
+// stddev(xs, mu): population standard deviation given a precomputed mean.
+// Source: shared/math.kof (variance + sqrt)
+stddev(List<Double> xs, Double mu): Double {
+    var n = xs.size()
+    if (n == 0) {
+        return 0.0
+    }
+    var acc = 0.0
+    var i = 0
+    while (i < n) {
+        var d = xs.get(i) - mu
+        acc = acc + d * d
+        i = i + 1
+    }
+    var nf = 1.0 * n
+    var v = acc / nf
+    return sqrt(v)
+}
+
+// ─── feature scaling (pure functions over List<Double>) ────────────────
+
+// zscore(xs): standardization -> (x - mu) / sigma. Output has mean ~0
+// and population stddev ~1. Throws on empty input (sigma undefined).
+zscore(List<Double> xs): List<Double> {
+    var n = xs.size()
+    if (n == 0) { throw "zscore: empty column" }
+    var mu = mean(xs)
+    var sd = stddev(xs, mu)
+    if (sd == 0.0) { throw "zscore: zero variance column" }
+    var out = listOf<Double>()
+    var i = 0
+    while (i < n) {
+        var z = (xs.get(i) - mu) / sd
+        out.add(z)
+        i = i + 1
+    }
+    return out
+}
+
+// minmax(xs): rescale to [0, 1] -> (x - min) / (max - min).
+// Throws on empty or constant input (range undefined).
+minmax(List<Double> xs): List<Double> {
+    var n = xs.size()
+    if (n == 0) { throw "minmax: empty column" }
+    var lo = xs.get(0)
+    var hi = xs.get(0)
+    var i = 0
+    while (i < n) {
+        var v = xs.get(i)
+        if (v < lo) { lo = v }
+        if (v > hi) { hi = v }
+        i = i + 1
+    }
+    var range = hi - lo
+    if (range == 0.0) { throw "minmax: constant column" }
+    var out = listOf<Double>()
+    i = 0
+    while (i < n) {
+        var m = (xs.get(i) - lo) / range
+        out.add(m)
+        i = i + 1
+    }
+    return out
+}
+
+// ─── one-hot encoding ──────────────────────────────────────────────────
+
+// uniqueCategories(labels): distinct labels preserving first-seen order.
+uniqueCategories(List<String> labels): List<String> {
+    var cats = listOf<String>()
+    var n = labels.size()
+    var i = 0
+    while (i < n) {
+        var c = labels.get(i)
+        var found = 0
+        var j = 0
+        var m = cats.size()
+        while (j < m) {
+            if (cats.get(j) == c) { found = 1 }
+            j = j + 1
+        }
+        if (found == 0) { cats.add(c) }
+        i = i + 1
+    }
+    return cats
+}
+
+// oneHot(labels): manual one-hot matrix. Row i has 1.0 in the column of
+// labels[i] and 0.0 elsewhere. Column order follows first-seen order.
+oneHot(List<String> labels): List<List<Double>> {
+    var cats = uniqueCategories(labels)
+    var k = cats.size()
+    var out = listOf<List<Double>>()
+    var n = labels.size()
+    var i = 0
+    while (i < n) {
+        var row = listOf<Double>()
+        var c = labels.get(i)
+        var j = 0
+        while (j < k) {
+            if (cats.get(j) == c) {
+                row.add(1.0)
+            } else {
+                row.add(0.0)
+            }
+            j = j + 1
+        }
+        out.add(row)
+        i = i + 1
+    }
+    return out
+}
+
+// ─── dataset loading ───────────────────────────────────────────────────
+
+// loadColumn(path, delim, colIdx, hasHeader): parses one numeric column.
+loadColumn(String path, String delim, Int colIdx, Int hasHeader): List<Double> {
+    var raw = File(path).readText()
+    if (raw == null) { throw "features: cannot read " + path }
+    var lines = split(raw, "\n")
+    var out = listOf<Double>()
+    var n = lines.size()
+    var i = 0
+    if (hasHeader == 1) { i = 1 }
+    while (i < n) {
+        var line = trim(lines.get(i))
+        if (line.length > 0) {
+            var cols = split(line, delim)
+            out.add(parseFloatStrict(trim(cols.get(colIdx))))
+        }
+        i = i + 1
+    }
+    return out
+}
+
+// loadStringColumn(path, delim, colIdx, hasHeader): string column.
+loadStringColumn(String path, String delim, Int colIdx, Int hasHeader): List<String> {
+    var raw = File(path).readText()
+    if (raw == null) { throw "features: cannot read " + path }
+    var lines = split(raw, "\n")
+    var out = listOf<String>()
+    var n = lines.size()
+    var i = 0
+    if (hasHeader == 1) { i = 1 }
+    while (i < n) {
+        var line = trim(lines.get(i))
+        if (line.length > 0) {
+            var cols = split(line, delim)
+            out.add(trim(cols.get(colIdx)))
+        }
+        i = i + 1
+    }
+    return out
+}
+
+// ─── demo ──────────────────────────────────────────────────────────────
+
+main() {
+    // Houses: numeric feature scaling (TSV, columns: sqft beds baths age price)
+    var features = listOf<String>()
+    features.add("sqft")
+    features.add("beds")
+    features.add("baths")
+    features.add("age")
+    var f = 0
+    while (f < 4) {
+        var col = loadColumn("datasets/houses.tsv", "\t", f, 1)
+        var z = zscore(col)
+        var mm = minmax(col)
+        var zMu = mean(z)
+        var zSd = stddev(z, zMu)
+        var mmLo = mm.get(0)
+        var mmHi = mm.get(0)
+        var i = 0
+        var n = mm.size()
+        while (i < n) {
+            var v = mm.get(i)
+            if (v < mmLo) { mmLo = v }
+            if (v > mmHi) { mmHi = v }
+            i = i + 1
+        }
+        println(features.get(f) + ": mu=" + mean(col).toString() + " sd=" + stddev(col, mean(col)).toString())
+        println("  zscore -> mean=" + zMu.toString() + " std=" + zSd.toString())
+        println("  minmax -> min=" + mmLo.toString() + " max=" + mmHi.toString())
+        f = f + 1
+    }
+
+    // Iris: manual one-hot encoding of the categorical target column
+    var species = loadStringColumn("datasets/iris.csv", ",", 4, 1)
+    var cats = uniqueCategories(species)
+    var enc = oneHot(species)
+    println("iris species categories: " + cats.size().toString())
+    var j = 0
+    while (j < cats.size()) {
+        println("  col " + j.toString() + " = " + cats.get(j))
+        j = j + 1
+    }
+    println("one-hot rows: " + enc.size().toString() + " x cols: " + enc.get(0).size().toString())
+    var r = 0
+    while (r < 3) {
+        var row = enc.get(r)
+        println("  row " + r.toString() + " (" + species.get(r) + "): " +
+            row.get(0).toString() + " " + row.get(1).toString() + " " + row.get(2).toString())
+        r = r + 1
+    }
+}

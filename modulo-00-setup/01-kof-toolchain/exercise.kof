@@ -1,0 +1,48 @@
+// modulo-00-setup/01-kof-toolchain/exercise.kof
+// Run with: kof test modulo-00-setup/01-kof-toolchain/exercise.kof
+
+split(String s, String delim): List<String> {
+    var out = listOf<String>()
+    if (delim.length == 0) { out.add(s); return out }
+    var start = 0
+    var n = s.length
+    var i = 0
+    while (i < n) { if (s.charAt(i) == delim.charAt(0)) { out.add(s.substring(start, i)); start = i + 1 } i = i + 1 }
+    out.add(s.substring(start, n))
+    return out
+}
+
+// ─── tests ─────────────────────────────────────────────────────────────
+
+test "employees.csv exists and has header" {
+    var raw = File("datasets/employees.csv").readText()
+    assert(raw != null, "employees.csv readable")
+    var lines = split(raw, "\n")
+    assert(lines.size() >= 2, "at least header + 1 row")
+    assert(lines.get(0).contains("id"), "header contains id")
+}
+
+test "iris datasets exist" {
+    var raw = File("datasets/iris.csv").readText()
+    assert(raw != null, "iris.csv readable")
+    var lines = split(raw, "\n")
+    assert(lines.size() >= 16, "iris.csv >=16 lines got " + lines.size().toString())
+    var full = File("datasets/iris_full.csv").readText()
+    assert(full != null, "iris_full.csv readable")
+    var flines = split(full, "\n")
+    assert(flines.size() >= 151, "iris_full ~151 lines got " + flines.size().toString())
+}
+
+test "jsonl datasets exist" {
+    var c = File("datasets/customers.jsonl").readText()
+    assert(c != null, "customers.jsonl readable")
+    assert(c.contains("customer_id"), "contains customer_id")
+    var d = File("datasets/docs.jsonl").readText()
+    assert(d != null, "docs.jsonl readable")
+}
+
+test "split helper works" {
+    var p = split("a,b,c", ",")
+    assert(p.size() == 3, "3 parts")
+    assert(p.get(1) == "b", "middle b")
+}

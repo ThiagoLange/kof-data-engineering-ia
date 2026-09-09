@@ -1,0 +1,198 @@
+// modulo-06-agentes/01-tool-schema/exercise.kof
+//
+// Run with: kof test modulo-06-agentes/01-tool-schema/exercise.kof
+//
+// Self-contained copy of lab.kof with assertions at the bottom. The
+// exercise must compile cleanly and run all assertions to PASS.
+
+// ─── helpers (inline copies of shared/*.kof) ───────────────────────────
+
+// Source: shared/strutils.kof
+split(String s, String delim): List<String> {
+    var out = listOf<String>()
+    if (delim.length == 0) {
+        out.add(s)
+        return out
+    }
+    var start = 0
+    var n = s.length
+    var i = 0
+    while (i < n) {
+        if (s.charAt(i) == delim.charAt(0)) {
+            out.add(s.substring(start, i))
+            start = i + 1
+        }
+        i = i + 1
+    }
+    out.add(s.substring(start, n))
+    return out
+}
+
+trim(String s): String {
+    var n = s.length
+    var start = 0
+    while (start < n) {
+        var c = s.charAt(start)
+        if (c != 32 && c != 9 && c != 10 && c != 13) { break }
+        start = start + 1
+    }
+    var end = n
+    while (end > start) {
+        var c = s.charAt(end - 1)
+        if (c != 32 && c != 9 && c != 10 && c != 13) { break }
+        end = end - 1
+    }
+    return s.substring(start, end)
+}
+
+// ─── domain ────────────────────────────────────────────────────────────
+
+record Param(String name, String type, String description, Int required)
+record Tool(String name, String description, List<Param> params)
+
+jsonType(String kofType): String {
+    if (kofType == "Int") { return "integer" }
+    if (kofType == "Double") { return "number" }
+    if (kofType == "String") { return "string" }
+    if (kofType == "Bool") { return "boolean" }
+    throw "tool-schema: unsupported param type: " + kofType
+}
+
+jsonEscape(String s): String {
+    var out = ""
+    var n = s.length
+    var i = 0
+    while (i < n) {
+        var c = s.charAt(i)
+        if (c == 34) {
+            out = out + "\\\""
+        } else if (c == 92) {
+            out = out + "\\\\"
+        } else if (c == 10) {
+            out = out + "\\n"
+        } else if (c == 13) {
+            out = out + "\\r"
+        } else if (c == 9) {
+            out = out + "\\t"
+        } else {
+            out = out + s.substring(i, i + 1)
+        }
+        i = i + 1
+    }
+    return out
+}
+
+toJsonSchema(Tool t): String {
+    var sb = ""
+    sb = sb + "{\"name\":\"" + jsonEscape(t.name) + "\""
+    sb = sb + ",\"description\":\"" + jsonEscape(t.description) + "\""
+    sb = sb + ",\"parameters\":{\"type\":\"object\",\"properties\":{"
+    var req = ""
+    var n = t.params.size()
+    var i = 0
+    while (i < n) {
+        var p = t.params.get(i)
+        if (i > 0) {
+            sb = sb + ","
+        }
+        sb = sb + "\"" + jsonEscape(p.name) + "\":{"
+        sb = sb + "\"type\":\"" + jsonType(p.type) + "\""
+        sb = sb + ",\"description\":\"" + jsonEscape(p.description) + "\""
+        sb = sb + "}"
+        if (p.required == 1) {
+            if (req.length > 0) {
+                req = req + ","
+            }
+            req = req + "\"" + jsonEscape(p.name) + "\""
+        }
+        i = i + 1
+    }
+    sb = sb + "},\"required\":[" + req + "]}}"
+    return sb
+}
+
+toolCalculator(): Tool {
+    var ps = listOf<Param>()
+    ps.add(Param("a", "Double", "left operand", 1))
+    ps.add(Param("b", "Double", "right operand", 1))
+    ps.add(Param("op", "String", "one of + - * /", 1))
+    return Tool("calculator", "Binary arithmetic: a op b", ps)
+}
+
+toolGetCustomer(): Tool {
+    var ps = listOf<Param>()
+    ps.add(Param("city", "String", "city code to filter by, e.g. SP", 1))
+    ps.add(Param("country", "String", "optional country filter", 0))
+    return Tool("get_customer", "Look up customers living in a city", ps)
+}
+
+toolFetchDoc(): Tool {
+    var ps = listOf<Param>()
+    ps.add(Param("id", "String", "document id, e.g. d1", 1))
+    return Tool("fetch_doc", "Fetch a document body by id", ps)
+}
+
+// ─── tests ─────────────────────────────────────────────────────────────
+
+test "schema has object parameters envelope" {
+    var s = toJsonSchema(toolCalculator())
+    assert(s.contains("\"parameters\":{\"type\":\"object\""), "parameters object")
+    assert(s.contains("\"properties\":{"), "properties map")
+    assert(s.contains("\"required\":["), "required array")
+}
+
+test "schema carries tool name and description" {
+    var s = toJsonSchema(toolCalculator())
+    assert(s.contains("\"name\":\"calculator\""), "tool name")
+    assert(s.contains("Binary arithmetic"), "description text")
+}
+
+test "schema maps param types to json schema types" {
+    var s = toJsonSchema(toolCalculator())
+    assert(s.contains("\"a\":{\"type\":\"number\""), "a is number")
+    assert(s.contains("\"b\":{\"type\":\"number\""), "b is number")
+    assert(s.contains("\"op\":{\"type\":\"string\""), "op is string")
+}
+
+test "schema lists required params in order" {
+    var s = toJsonSchema(toolCalculator())
+    assert(s.contains("\"required\":[\"a\",\"b\",\"op\"]"), "all three required")
+}
+
+test "optional param is excluded from required" {
+    var s = toJsonSchema(toolGetCustomer())
+    assert(s.contains("\"required\":[\"city\"]"), "only city required")
+    assert(s.contains("\"country\":{\"type\":\"string\""), "country still declared")
+}
+
+test "all catalogue tools serialize" {
+    var tools = listOf<Tool>()
+    tools.add(toolCalculator())
+    tools.add(toolGetCustomer())
+    tools.add(toolFetchDoc())
+    var i = 0
+    while (i < tools.size()) {
+        var s = toJsonSchema(tools.get(i))
+        assert(s.charAt(0) == 123, "starts with { for " + tools.get(i).name)
+        var last = s.length - 1
+        assert(s.charAt(last) == 125, "ends with } for " + tools.get(i).name)
+        i = i + 1
+    }
+}
+
+test "jsonEscape quotes and backslashes" {
+    var e = jsonEscape("say \"hi\" \\ end")
+    assert(e.contains("\\\"hi\\\""), "quotes escaped")
+    assert(e.contains("\\\\"), "backslash escaped")
+}
+
+test "jsonType rejects unknown types" {
+    var threw = 0
+    try {
+        var x = jsonType("Map")
+        assert(x == "", "unreachable")
+    } catch (String e) {
+        threw = 1
+    }
+    assert(threw == 1, "must throw on unknown type")
+}

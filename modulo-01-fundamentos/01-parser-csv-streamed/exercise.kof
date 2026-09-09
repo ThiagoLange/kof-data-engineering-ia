@@ -1,0 +1,237 @@
+// modulo-01-fundamentos/01-parser-csv-streamed/exercise.kof
+//
+// Run with: kof test modulo-01-fundamentos/01-parser-csv-streamed/exercise.kof
+//
+// Self-contained copy of lab.kof with assertions at the bottom. The
+// exercise must compile cleanly and run all assertions to PASS.
+
+// ─── helpers (inline copies of shared/*.kof) ───────────────────────────
+
+split(String s, String delim): List<String> {
+    var out = listOf<String>()
+    var start = 0
+    var n = s.length
+    var i = 0
+    while (i < n) {
+        if (s.charAt(i) == delim.charAt(0)) {
+            out.add(s.substring(start, i))
+            start = i + 1
+        }
+        i = i + 1
+    }
+    out.add(s.substring(start, n))
+    return out
+}
+
+trim(String s): String {
+    var n = s.length
+    var start = 0
+    while (start < n) {
+        var c = s.charAt(start)
+        if (c != 32 && c != 9 && c != 10 && c != 13) { break }
+        start = start + 1
+    }
+    var end = n
+    while (end > start) {
+        var c = s.charAt(end - 1)
+        if (c != 32 && c != 9 && c != 10 && c != 13) { break }
+        end = end - 1
+    }
+    return s.substring(start, end)
+}
+
+parseIntStrict(String s): Int {
+    if (s == null) { throw "parseInt: null input" }
+    var n = s.length
+    if (n == 0) { throw "parseInt: empty input" }
+    var i = 0
+    var sign = 1
+    var c = s.charAt(0)
+    if (c == 45) { sign = -1; i = 1 }
+    else if (c == 43) { i = 1 }
+    if (i >= n) { throw "parseInt: sign only" }
+    var acc = 0
+    while (i < n) {
+        var ch = s.charAt(i)
+        if (ch < 48 || ch > 57) { throw "parseInt: invalid digit" }
+        acc = acc * 10 + (ch - 48)
+        i = i + 1
+    }
+    return sign * acc
+}
+
+parseFloatStrict(String s): Double {
+    if (s == null) { throw "parseFloat: null input" }
+    var n = s.length
+    if (n == 0) { throw "parseFloat: empty input" }
+    var i = 0
+    var sign = 1.0
+    var c = s.charAt(0)
+    if (c == 45) { sign = -1.0; i = 1 }
+    else if (c == 43) { i = 1 }
+    if (i >= n) { throw "parseFloat: sign only" }
+    var intPart = 0.0
+    var sawDigit = 0
+    while (i < n) {
+        var ch = s.charAt(i)
+        if (ch >= 48 && ch <= 57) {
+            intPart = intPart * 10.0 + ch - 48.0
+            sawDigit = 1
+            i = i + 1
+        } else { break }
+    }
+    var base = sign * intPart
+    var fracAcc = 0.0
+    var div = 1.0
+    var hasDot = 0
+    if (i < n) {
+        if (s.charAt(i) == 46) {
+            hasDot = 1
+            i = i + 1
+        }
+    }
+    while (i < n && hasDot == 1) {
+        var ch = s.charAt(i)
+        if (ch >= 48 && ch <= 57) {
+            fracAcc = fracAcc * 10.0 + ch - 48.0
+            div = div * 10.0
+            i = i + 1
+        } else { break }
+    }
+    if (sawDigit == 0 && hasDot == 0) { throw "parseFloat: no digits" }
+    if (i < n) { throw "parseFloat: trailing garbage" }
+    var frac = fracAcc / div
+    var value = base + frac
+    return value
+}
+
+parseIntSafe(String s, Int fallback): Int {
+    try { return parseIntStrict(s) } catch (String e) { return fallback }
+}
+
+parseFloatSafe(String s, Double fallback): Double {
+    try { return parseFloatStrict(s) } catch (String e) { return fallback }
+}
+
+// ─── domain ────────────────────────────────────────────────────────────
+
+record Employee(Int id, Int age, Double salary, String name, String city)
+
+parseRow(String line): Employee {
+    var cols = split(line, ",")
+    if (cols.size() != 5) {
+        throw "csv: column count mismatch"
+    }
+    var id = parseIntStrict(trim(cols.get(0)))
+    var name = trim(cols.get(1))
+    var age = parseIntSafe(trim(cols.get(2)), -1)
+    var city = trim(cols.get(3))
+    var salary = parseFloatSafe(trim(cols.get(4)), 0.0)
+    return Employee(id, age, salary, name, city)
+}
+
+readCsv(String path): List<Employee> {
+    var raw = File(path).readText()
+    var lines = split(raw, "\n")
+    var out = listOf<Employee>()
+    var n = lines.size()
+    if (n == 0) { return out }
+    var i = 1
+    while (i < n) {
+        var line = trim(lines.get(i))
+        if (line.length > 0) {
+            out.add(parseRow(line))
+        }
+        i = i + 1
+    }
+    return out
+}
+
+// ─── tests ─────────────────────────────────────────────────────────────
+
+test "split preserves empty fields" {
+    var parts = split("a,b,,c", ",")
+    assert(parts.size() == 4, "expected 4 parts")
+    assert(parts.get(0) == "a", "a")
+    assert(parts.get(1) == "b", "b")
+    assert(parts.get(2) == "", "empty field preserved")
+    assert(parts.get(3) == "c", "c")
+}
+
+test "trim removes ascii whitespace" {
+    var t = trim("  hi\n")
+    assert(t == "hi", "trim")
+}
+
+test "parseIntStrict positive" {
+    var v = parseIntStrict("42")
+    assert(v == 42, "42")
+}
+
+test "parseIntStrict negative" {
+    var v = parseIntStrict("-7")
+    assert(v == -7, "-7")
+}
+
+test "parseIntStrict throws on bad digit" {
+    var threw = 0
+    try {
+        var v = parseIntStrict("42x")
+        assert(v == 42, "should not reach")
+    } catch (String e) {
+        threw = 1
+    }
+    assert(threw == 1, "must throw on bad input")
+}
+
+test "parseFloatStrict decimal" {
+    var v = parseFloatStrict("3.14")
+    var diff = v - 3.14
+    if (diff < 0.0) { diff = -diff }
+    assert(diff < 0.0001, "3.14 ~= " + v.toString())
+}
+
+test "parseIntSafe uses fallback on empty" {
+    var v = parseIntSafe("", -1)
+    assert(v == -1, "fallback")
+}
+
+test "parseFloatSafe uses fallback on bad" {
+    var v = parseFloatSafe("abc", 0.0)
+    assert(v == 0.0, "fallback")
+}
+
+test "parseRow all fields present" {
+    var r = parseRow("1,Alice,28,SP,5500.50")
+    assert(r.id == 1, "id")
+    assert(r.age == 28, "age")
+    assert(r.name == "Alice", "name")
+    assert(r.city == "SP", "city")
+    var sd = r.salary - 5500.50
+    if (sd < 0.0) { sd = -sd }
+    assert(sd < 0.0001, "salary")
+}
+
+test "parseRow missing age and salary" {
+    var r = parseRow("2,Bob,,RJ,")
+    assert(r.id == 2, "id")
+    assert(r.age == -1, "age fallback")
+    assert(r.salary == 0.0, "salary fallback")
+    assert(r.name == "Bob", "name")
+    assert(r.city == "RJ", "city")
+}
+
+test "readCsv parses 6 rows from dataset" {
+    var rows = readCsv("datasets/employees.csv")
+    assert(rows.size() == 6, "expected 6 rows; got " + rows.size().toString())
+    var first = rows.get(0)
+    assert(first.id == 1, "row0 id")
+    assert(first.age == 28, "row0 age")
+    var d = first.salary - 5500.50
+    if (d < 0.0) { d = -d }
+    assert(d < 0.0001, "row0 salary")
+    var last = rows.get(5)
+    assert(last.id == 6, "row5 id")
+    assert(last.name == "", "row5 empty name")
+    assert(last.age == 31, "row5 age")
+}

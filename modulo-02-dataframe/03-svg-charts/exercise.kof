@@ -1,0 +1,242 @@
+// modulo-02-dataframe/03-svg-charts/exercise.kof
+// Run with: kof test modulo-02-dataframe/03-svg-charts/exercise.kof
+
+split(String s, String delim): List<String> {
+    var out = listOf<String>()
+    if (delim.length == 0) { out.add(s); return out }
+    var start = 0
+    var n = s.length
+    var i = 0
+    while (i < n) { if (s.charAt(i) == delim.charAt(0)) { out.add(s.substring(start, i)); start = i + 1 } i = i + 1 }
+    out.add(s.substring(start, n))
+    return out
+}
+
+trim(String s): String {
+    var n = s.length
+    var start = 0
+    while (start < n) { var c = s.charAt(start); if (c != 32 && c != 9 && c != 10 && c != 13) { break } start = start + 1 }
+    var end = n
+    while (end > start) { var c = s.charAt(end - 1); if (c != 32 && c != 9 && c != 10 && c != 13) { break } end = end - 1 }
+    return s.substring(start, end)
+}
+
+parseFloatStrict(String s): Double {
+    if (s == null) { throw "parseFloat: null input" }
+    var n = s.length
+    if (n == 0) { throw "parseFloat: empty input" }
+    var i = 0
+    var sign = 1.0
+    var c = s.charAt(0)
+    if (c == 45) { sign = -1.0; i = 1 }
+    else if (c == 43) { i = 1 }
+    if (i >= n) { throw "parseFloat: sign only" }
+    var intPart = 0.0
+    var sawDigit = 0
+    while (i < n) { var ch = s.charAt(i); if (ch >= 48 && ch <= 57) { intPart = intPart * 10.0 + ch - 48.0; sawDigit = 1; i = i + 1 } else { break } }
+    var base = sign * intPart
+    var fracAcc = 0.0
+    var div = 1.0
+    var hasDot = 0
+    if (i < n) { if (s.charAt(i) == 46) { hasDot = 1; i = i + 1 } }
+    while (i < n && hasDot == 1) { var ch = s.charAt(i); if (ch >= 48 && ch <= 57) { fracAcc = fracAcc * 10.0 + ch - 48.0; div = div * 10.0; i = i + 1 } else { break } }
+    if (sawDigit == 0 && hasDot == 0) { throw "parseFloat: no digits" }
+    if (i < n) { throw "parseFloat: trailing garbage" }
+    var frac = fracAcc / div
+    var value = base + frac
+    return value
+}
+
+minD(List<Double> xs): Double {
+    if (xs.size() == 0) { throw "min: empty" }
+    var m = xs.get(0)
+    var i = 1
+    while (i < xs.size()) { if (xs.get(i) < m) { m = xs.get(i) } i = i + 1 }
+    return m
+}
+
+maxD(List<Double> xs): Double {
+    if (xs.size() == 0) { throw "max: empty" }
+    var m = xs.get(0)
+    var i = 1
+    while (i < xs.size()) { if (xs.get(i) > m) { m = xs.get(i) } i = i + 1 }
+    return m
+}
+
+record IrisRow(Double sepal_length, Double petal_length, String species)
+record Bar(String label, Double value)
+record Customer(Int customer_id, String name, String city)
+record Transaction(Int tx_id, Int customer_id, Double amount)
+
+loadIris(String path): List<IrisRow> {
+    var raw = File(path).readText()
+    if (raw == null) { throw "charts: cannot read " + path }
+    var lines = split(raw, "\n")
+    var out = listOf<IrisRow>()
+    var i = 1
+    while (i < lines.size()) { var line = trim(lines.get(i)); if (line.length > 0) { var c = split(line, ","); out.add(IrisRow(parseFloatStrict(trim(c.get(0))), parseFloatStrict(trim(c.get(2))), trim(c.get(4)))) } i = i + 1 }
+    return out
+}
+
+loadCustomers(String path): List<Customer> {
+    var raw = File(path).readText()
+    if (raw == null) { throw "charts: cannot read " + path }
+    var lines = split(raw, "\n")
+    var out = listOf<Customer>()
+    var i = 0
+    while (i < lines.size()) { var line = trim(lines.get(i)); if (line.length > 0) { out.add(json.decode<Customer>(line)) } i = i + 1 }
+    return out
+}
+
+loadTransactions(String path): List<Transaction> {
+    var raw = File(path).readText()
+    if (raw == null) { throw "charts: cannot read " + path }
+    var lines = split(raw, "\n")
+    var out = listOf<Transaction>()
+    var i = 0
+    while (i < lines.size()) { var line = trim(lines.get(i)); if (line.length > 0) { out.add(json.decode<Transaction>(line)) } i = i + 1 }
+    return out
+}
+
+colorForSpecies(String s): String {
+    if (s == "setosa") { return "#e41a1c" }
+    if (s == "versicolor") { return "#377eb8" }
+    if (s == "virginica") { return "#4daf4a" }
+    return "#999999"
+}
+
+mapX(Double v, Double dMin, Double dMax, Double pMin, Double pMax): Double {
+    if (dMax == dMin) { return pMin }
+    var t = (v - dMin) / (dMax - dMin)
+    return pMin + t * (pMax - pMin)
+}
+
+mapY(Double v, Double dMin, Double dMax, Double pMin, Double pMax): Double {
+    if (dMax == dMin) { return pMin }
+    var t = (v - dMin) / (dMax - dMin)
+    return pMax - t * (pMax - pMin)
+}
+
+scatterSvg(List<IrisRow> rows, Int width, Int height): String {
+    var xs = listOf<Double>()
+    var ys = listOf<Double>()
+    var i = 0
+    while (i < rows.size()) { xs.add(rows.get(i).sepal_length); ys.add(rows.get(i).petal_length); i = i + 1 }
+    var xMin = minD(xs)
+    var xMax = maxD(xs)
+    var yMin = minD(ys)
+    var yMax = maxD(ys)
+    var pad = 40.0
+    var w = 1.0 * width
+    var h = 1.0 * height
+    var sb = ""
+    sb = sb + "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"" + width.toString() + "\" height=\"" + height.toString() + "\">\n"
+    sb = sb + "<rect width=\"100%\" height=\"100%\" fill=\"white\"/>\n"
+    sb = sb + "<line x1=\"" + pad.toString() + "\" y1=\"" + (h - pad).toString() + "\" x2=\"" + (w - pad).toString() + "\" y2=\"" + (h - pad).toString() + "\" stroke=\"black\"/>\n"
+    sb = sb + "<line x1=\"" + pad.toString() + "\" y1=\"" + pad.toString() + "\" x2=\"" + pad.toString() + "\" y2=\"" + (h - pad).toString() + "\" stroke=\"black\"/>\n"
+    var j = 0
+    while (j < rows.size()) { var r = rows.get(j); var px = mapX(r.sepal_length, xMin, xMax, pad, w - pad); var py = mapY(r.petal_length, yMin, yMax, pad, h - pad); var col = colorForSpecies(r.species); sb = sb + "<circle cx=\"" + px.toString() + "\" cy=\"" + py.toString() + "\" r=\"5\" fill=\"" + col + "\" opacity=\"0.8\"/>\n"; j = j + 1 }
+    sb = sb + "</svg>\n"
+    return sb
+}
+
+barSvg(List<Bar> bars, Int width, Int height): String {
+    var vals = listOf<Double>()
+    var i = 0
+    while (i < bars.size()) { vals.add(bars.get(i).value); i = i + 1 }
+    var vMax = maxD(vals)
+    if (vMax == 0.0) { vMax = 1.0 }
+    var pad = 40.0
+    var w = 1.0 * width
+    var h = 1.0 * height
+    var n = bars.size()
+    var nf = 1.0 * n
+    var slot = (w - 2.0 * pad) / nf
+    var barW = slot * 0.6
+    var gap = slot * 0.4
+    var sb = ""
+    sb = sb + "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"" + width.toString() + "\" height=\"" + height.toString() + "\">\n"
+    sb = sb + "<rect width=\"100%\" height=\"100%\" fill=\"white\"/>\n"
+    var j = 0
+    while (j < n) {
+        var b = bars.get(j)
+        var jf = 1.0 * j
+        var x = pad + jf * slot + gap / 2.0
+        var bh = (b.value / vMax) * (h - 2.0 * pad)
+        var y = h - pad - bh
+        sb = sb + "<rect x=\"" + x.toString() + "\" y=\"" + y.toString() + "\" width=\"" + barW.toString() + "\" height=\"" + bh.toString() + "\" fill=\"#377eb8\"/>\n"
+        sb = sb + "<text x=\"" + (x + barW / 2.0).toString() + "\" y=\"" + (h - 20.0).toString() + "\" text-anchor=\"middle\" font-size=\"11\">" + b.label + "</text>\n"
+        j = j + 1
+    }
+    sb = sb + "</svg>\n"
+    return sb
+}
+
+countByCity(List<Transaction> txs, List<Customer> cs): List<Bar> {
+    var cityNames = listOf<String>()
+    var cityCounts = listOf<Double>()
+    var i = 0
+    while (i < txs.size()) {
+        var t = txs.get(i)
+        var city = ""
+        var j = 0
+        while (j < cs.size()) { if (cs.get(j).customer_id == t.customer_id) { city = cs.get(j).city; j = cs.size() } else { j = j + 1 } }
+        var idx = -1
+        var k = 0
+        while (k < cityNames.size()) { if (cityNames.get(k) == city) { idx = k; k = cityNames.size() } else { k = k + 1 } }
+        if (idx == -1) { cityNames.add(city); cityCounts.add(1.0) } else { var cur = cityCounts.get(idx); var nxt = cur + 1.0; cityCounts.set(idx, nxt) }
+        i = i + 1
+    }
+    var out = listOf<Bar>()
+    var b = 0
+    while (b < cityNames.size()) { out.add(Bar(cityNames.get(b), cityCounts.get(b))); b = b + 1 }
+    return out
+}
+
+// ─── tests ─────────────────────────────────────────────────────────────
+
+test "scatter contains svg and circles" {
+    var rows = loadIris("datasets/iris.csv")
+    var svg = scatterSvg(rows, 500, 350)
+    assert(svg.contains("<svg"), "svg tag")
+    assert(svg.contains("<circle"), "circles")
+    assert(svg.contains("sepal_length") == false || svg.contains("svg") == true, "has content")
+    // 15 circles + legend not counted — check substring count via split trick: count occurrences of "<circle"
+    var parts = split(svg, "<circle")
+    // split on "<circle" yields n_circles+1 parts
+    assert(parts.size() >= 16, "expect >=15 circles + legend, got parts " + parts.size().toString())
+}
+
+test "bar chart per city has 3 bars" {
+    var cs = loadCustomers("datasets/customers.jsonl")
+    var txs = loadTransactions("datasets/transactions.jsonl")
+    var bars = countByCity(txs, cs)
+    assert(bars.size() == 3, "3 bars got " + bars.size().toString())
+    var svg = barSvg(bars, 400, 280)
+    assert(svg.contains("<rect"), "rects")
+    assert(svg.contains("SP"), "SP label")
+}
+
+test "mapX maps endpoints correctly" {
+    var v = mapX(5.0, 0.0, 10.0, 0.0, 100.0)
+    var diff = v - 50.0
+    if (diff < 0.0) { diff = -diff }
+    assert(diff < 0.001, "mapX 5 -> 50 got " + v.toString())
+    var v2 = mapX(0.0, 0.0, 10.0, 0.0, 100.0)
+    var d2 = v2 - 0.0
+    if (d2 < 0.0) { d2 = -d2 }
+    assert(d2 < 0.001, "mapX 0 -> 0")
+}
+
+test "mapY inverts correctly" {
+    // Y grows downward, so data min -> pixel max, data max -> pixel min
+    var v = mapY(0.0, 0.0, 10.0, 0.0, 100.0)
+    var diff = v - 100.0
+    if (diff < 0.0) { diff = -diff }
+    assert(diff < 0.001, "mapY 0 -> 100 got " + v.toString())
+}
+
+test "colorForSpecies mapping" {
+    assert(colorForSpecies("setosa") == "#e41a1c", "setosa red")
+    assert(colorForSpecies("virginica") == "#4daf4a", "virginica green")
+}

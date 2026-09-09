@@ -1,0 +1,7 @@
+id,name,age,city,salary
+1,Alice,28,SP,5500.50
+2,Bob,,RJ,4200.00
+3,Carla,35,SP,7800.75
+4,David,42,,9100.00
+5,Eve,29,MG,
+6,,31,SP,6200.10

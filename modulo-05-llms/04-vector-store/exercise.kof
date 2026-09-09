@@ -1,0 +1,352 @@
+// modulo-05-llms/04-vector-store/lab.kof
+//
+// In-memory Vector Store (RAG): indexing via fake embeddings, k-NN search
+// with cosine similarity, persistence to JSONL, and retrieval demo.
+// Embeddings are deterministic fake vectors (char-hash into 4-D) —
+// real embeddings would come from Lab 5.1 LLMClient.
+//
+// Source: shared/strutils.kof, shared/math.kof
+// Target: JVM (json.encode/decode<T> + File are JVM-supported).
+
+// ─── helpers ───────────────────────────────────────────────────────────
+
+split(String s, String delim): List<String> {
+    var out = listOf<String>()
+    if (delim.length == 0) { out.add(s); return out }
+    var start = 0
+    var n = s.length
+    var i = 0
+    while (i < n) { if (s.charAt(i) == delim.charAt(0)) { out.add(s.substring(start, i)); start = i + 1 } i = i + 1 }
+    out.add(s.substring(start, n))
+    return out
+}
+
+trim(String s): String {
+    var n = s.length
+    var start = 0
+    while (start < n) { var c = s.charAt(start); if (c != 32 && c != 9 && c != 10 && c != 13) { break } start = start + 1 }
+    var end = n
+    while (end > start) { var c = s.charAt(end - 1); if (c != 32 && c != 9 && c != 10 && c != 13) { break } end = end - 1 }
+    return s.substring(start, end)
+}
+
+sqrt(Double x): Double {
+    if (x <= 0.0) { return 0.0 }
+    var g = x
+    var i = 0
+    while (i < 20) { g = 0.5 * (g + x / g); i = i + 1 }
+    return g
+}
+
+// ─── vector ops (same as 05-03) ──────────────────────────────────────
+
+dot(List<Double> a, List<Double> b): Double {
+    if (a.size() != b.size()) { throw "vectorstore: dim mismatch" }
+    var s = 0.0
+    var i = 0
+    while (i < a.size()) { s = s + a.get(i) * b.get(i); i = i + 1 }
+    return s
+}
+
+norm(List<Double> a): Double { return sqrt(dot(a,a)) }
+
+cosineSim(List<Double> a, List<Double> b): Double {
+    var nA = norm(a)
+    var nB = norm(b)
+    if (nA == 0.0 || nB == 0.0) { return 0.0 }
+    return dot(a,b) / (nA * nB)
+}
+
+// ─── fake embedding ────────────────────────────────────────────────────
+
+// fakeEmbed(text, dim): deterministic char-hash into dim-D vector.
+// Sums char codes into buckets (i % dim), then L2-normalizes.
+// Not semantically meaningful but deterministic and collinear-safe.
+fakeEmbed(String text, Int dim): List<Double> {
+    var buckets = listOf<Double>()
+    var i = 0
+    while (i < dim) { buckets.add(0.0); i = i + 1 }
+    var j = 0
+    while (j < text.length) {
+        var c = text.charAt(j)
+        var idx = j % dim
+        var cur = buckets.get(idx)
+        var nxt = cur + (1.0 * c)
+        buckets.set(idx, nxt)
+        j = j + 1
+    }
+    var n = norm(buckets)
+    if (n == 0.0) { return buckets }
+    var out = listOf<Double>()
+    var k = 0
+    while (k < dim) { out.add(buckets.get(k) / n); k = k + 1 }
+    return out
+}
+
+// ─── VectorStore ───────────────────────────────────────────────────────
+
+// 0.3.2-compat: DocEntry embedding stored as CSV string (List<Double> in record
+// breaks GenericSignatureFormatError in 0.3.2). Helpers convert on demand.
+record DocEntry(String id, String text, String embeddingCsv)
+
+embeddingToCsv(List<Double> v): String {
+    var s = ""
+    var i = 0
+    while (i < v.size()) {
+        if (i > 0) { s = s + "," }
+        s = s + v.get(i).toString()
+        i = i + 1
+    }
+    return s
+}
+
+csvToEmbedding(String csv): List<Double> {
+    var out = listOf<Double>()
+    var start = 0
+    var n = csv.length
+    var i = 0
+    while (i <= n) {
+        if (i == n || csv.charAt(i) == 44) {
+            var tok = csv.substring(start, i)
+            if (tok.length > 0) {
+                // inline parseFloat: use fakeEmbed's helper? duplicate minimal
+                var sign = 1.0
+                var k = 0
+                if (tok.charAt(0) == 45) { sign = -1.0; k = 1 }
+                var intPart = 0.0
+                while (k < tok.length) {
+                    var ch = tok.charAt(k)
+                    if (ch >= 48 && ch <= 57) { intPart = intPart * 10.0 + ch - 48.0; k = k + 1 } else { break }
+                }
+                var base = sign * intPart
+                var fracAcc = 0.0
+                var div = 1.0
+                var hasDot = 0
+                if (k < tok.length && tok.charAt(k) == 46) { hasDot = 1; k = k + 1 }
+                while (k < tok.length && hasDot == 1) {
+                    var ch2 = tok.charAt(k)
+                    if (ch2 >= 48 && ch2 <= 57) { fracAcc = fracAcc * 10.0 + ch2 - 48.0; div = div * 10.0; k = k + 1 } else { break }
+                }
+                var frac = fracAcc / div
+                if (sign < 0.0) { frac = -frac }
+                out.add(base + frac)
+            }
+            start = i + 1
+        }
+        i = i + 1
+    }
+    return out
+}
+
+class VectorStore(List<DocEntry> docs, Int dim) {
+    size(): Int { return docs.size() }
+
+    add(String id, String text): Int {
+        var emb = fakeEmbed(text, dim)
+        var csv = embeddingToCsv(emb)
+        docs.add(DocEntry(id, text, csv))
+        return 0
+    }
+
+    // search(queryText, k): returns up to k entries with highest cosine sim
+    search(String queryText, Int k): List<DocEntry> {
+        if (k <= 0) { throw "vectorstore: k must be >0" }
+        var q = fakeEmbed(queryText, dim)
+        // score all
+        var scores = listOf<Double>()
+        var i = 0
+        while (i < docs.size()) {
+            var emb = csvToEmbedding(docs.get(i).embeddingCsv)
+            scores.add(cosineSim(emb, q))
+            i = i + 1
+        }
+        // select top k indices (same topK as 05-03)
+        var remaining = listOf<Int>()
+        var r = 0
+        while (r < scores.size()) { remaining.add(r); r = r + 1 }
+        if (k > remaining.size()) { k = remaining.size() }
+        var out = listOf<DocEntry>()
+        var t = 0
+        while (t < k) {
+            var bestPos = 0
+            var bestScore = scores.get(remaining.get(0))
+            var j = 1
+            while (j < remaining.size()) {
+                var idx = remaining.get(j)
+                var sc = scores.get(idx)
+                if (sc > bestScore) { bestScore = sc; bestPos = j }
+                j = j + 1
+            }
+            var chosenIdx = remaining.get(bestPos)
+            out.add(docs.get(chosenIdx))
+            var next = listOf<Int>()
+            var rr = 0
+            while (rr < remaining.size()) { if (rr != bestPos) { next.add(remaining.get(rr)) } rr = rr + 1 }
+            remaining = next
+            t = t + 1
+        }
+        return out
+    }
+
+    // persist to JSONL: one json.encode per line
+    persist(String path): Int {
+        var sb = ""
+        var i = 0
+        while (i < docs.size()) {
+            if (i > 0) { sb = sb + "\n" }
+            sb = sb + json.encode(docs.get(i))
+            i = i + 1
+        }
+        File(path).writeText(sb)
+        return docs.size()
+    }
+}
+
+makeStore(Int dim): VectorStore {
+    var docs = listOf<DocEntry>()
+    return VectorStore(docs, dim)
+}
+
+loadStore(String path, Int dim): VectorStore {
+    var raw = File(path).readText()
+    if (raw == null) { throw "vectorstore: cannot read " + path }
+    var lines = split(raw, "\n")
+    var store = makeStore(dim)
+    var i = 0
+    while (i < lines.size()) {
+        var line = trim(lines.get(i))
+        if (line.length > 0) {
+            var e = json.decode<DocEntry>(line)
+            store.docs.add(e)
+        }
+        i = i + 1
+    }
+    return store
+}
+
+// ─── docs.jsonl ingestion ────────────────────────────────────────────
+
+record DocJson(String id, String title, String body, String lang)
+
+loadDocsJsonl(String path): List<DocJson> {
+    var raw = File(path).readText()
+    if (raw == null) { throw "vectorstore: cannot read " + path }
+    var lines = split(raw, "\n")
+    var out = listOf<DocJson>()
+    var i = 0
+    while (i < lines.size()) {
+        var line = trim(lines.get(i))
+        if (line.length > 0) { out.add(json.decode<DocJson>(line)) }
+        i = i + 1
+    }
+    return out
+}
+
+// ─── demo ──────────────────────────────────────────────────────────────
+
+main() {
+    var dim = 4
+    var store = makeStore(dim)
+    // Index from datasets/docs.jsonl
+    var docs = loadDocsJsonl("datasets/docs.jsonl")
+    println("indexing " + docs.size().toString() + " docs")
+    var i = 0
+    while (i < docs.size()) {
+        var d = docs.get(i)
+        var text = d.title + " " + d.body
+        store.add(d.id, text)
+        println("  indexed " + d.id + " (" + text.length.toString() + " chars)")
+        i = i + 1
+    }
+    println("store size: " + store.size().toString())
+
+    // Search before persistence
+    var query = "Kof statically typed language"
+    var hits = store.search(query, 2)
+    println("query \"" + query + "\" top-2:")
+    var h = 0
+    while (h < hits.size()) {
+        var e = hits.get(h)
+        println("  rank " + h.toString() + " id=" + e.id + " text=\"" + e.text.substring(0, 40) + "...\"")
+        h = h + 1
+    }
+
+    // Persist + reload round-trip
+    var ckPath = "modulo-05-llms/04-vector-store/store.jsonl"
+    var n = store.persist(ckPath)
+    println("persisted " + n.toString() + " entries to " + ckPath)
+    var reloaded = loadStore(ckPath, dim)
+    println("reloaded size: " + reloaded.size().toString())
+    var hits2 = reloaded.search(query, 1)
+    println("reloaded top-1 id=" + hits2.get(0).id)
+
+    // Another query
+    var q2 = "vector embeddings similarity search"
+    var hits3 = reloaded.search(q2, 2)
+    println("query \"" + q2 + "\" top-2:")
+    var k = 0
+    while (k < hits3.size()) { println("  " + hits3.get(k).id + ": " + hits3.get(k).text.substring(0, 50)); k = k + 1 }
+
+    // cleanup
+    File(ckPath).delete()
+    println("checkpoint deleted")
+}
+// ─── tests ─────────────────────────────────────────────────────────
+test "fakeEmbed deterministic and normalized" {
+    var e1 = fakeEmbed("hello world", 4)
+    var e2 = fakeEmbed("hello world", 4)
+    assert(e1.size() == 4, "dim 4")
+    assert(e2.size() == 4, "dim 4 second")
+    var i = 0
+    while (i < 4) { var d = e1.get(i) - e2.get(i); if (d < 0.0) { d = -d } assert(d < 0.0001, "deterministic"); i = i + 1 }
+    var n = norm(e1)
+    var d1 = n - 1.0
+    if (d1 < 0.0) { d1 = -d1 }
+    assert(d1 < 0.0001, "normalized 1.0 got " + n.toString())
+}
+test "store add and size" {
+    var st = makeStore(4)
+    assert(st.size() == 0, "empty")
+    st.add("d1", "hello")
+    assert(st.size() == 1, "size 1")
+    st.add("d2", "world")
+    assert(st.size() == 2, "size 2")
+}
+test "search returns valid entry" {
+    var st = makeStore(4)
+    st.add("a", "Kof language")
+    st.add("b", "Data pipeline")
+    var hits = st.search("Kof", 1)
+    assert(hits.size() == 1, "k=1 one hit")
+}
+test "search topK exact hit" {
+    var st = makeStore(4)
+    st.add("x", "alpha beta gamma")
+    var q = "alpha beta gamma"
+    var hits = st.search(q, 1)
+    assert(hits.size() == 1, "one hit")
+    assert(hits.get(0).id == "x", "exact match x got " + hits.get(0).id)
+}
+test "persist and reload roundtrip" {
+    var st = makeStore(4)
+    st.add("d1", "hello world")
+    st.add("d2", "foo bar")
+    var path = "modulo-05-llms/04-vector-store/test_store.jsonl"
+    var n = st.persist(path)
+    assert(n == 2, "persist 2")
+    var re = loadStore(path, 4)
+    assert(re.size() == 2, "reloaded 2")
+    var hits = re.search("hello", 1)
+    assert(hits.size() == 1, "search after reload")
+    File(path).delete()
+}
+test "k larger than size clamps" {
+    var st = makeStore(4)
+    st.add("a", "one")
+    var hits = st.search("one", 10)
+    assert(hits.size() == 1, "clamped to size 1")
+}
+test "loadDocsJsonl 5 docs" {
+    var docs = loadDocsJsonl("datasets/docs.jsonl")
+    assert(docs.size() == 5, "5 docs got " + docs.size().toString())
+}

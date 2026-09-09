@@ -1,0 +1,297 @@
+// modulo-03-ml/02-linear-regression-sgd/exercise.kof
+//
+// Run with: kof test modulo-03-ml/02-linear-regression-sgd/exercise.kof
+//
+// Self-contained copy of lab.kof with assertions. Verifies the two
+// invariants that make gradient descent trustworthy:
+//   1. final MSE << initial MSE (the optimizer actually descends)
+//   2. predict(1500 sqft) lands in a sane price band [150k, 300k]
+
+// ─── helpers (inline copies of shared/*.kof) ───────────────────────────
+
+split(String s, String delim): List<String> {
+    var out = listOf<String>()
+    if (delim.length == 0) {
+        out.add(s)
+        return out
+    }
+    var start = 0
+    var n = s.length
+    var i = 0
+    while (i < n) {
+        if (s.charAt(i) == delim.charAt(0)) {
+            out.add(s.substring(start, i))
+            start = i + 1
+        }
+        i = i + 1
+    }
+    out.add(s.substring(start, n))
+    return out
+}
+
+trim(String s): String {
+    var n = s.length
+    var start = 0
+    while (start < n) {
+        var c = s.charAt(start)
+        if (c != 32 && c != 9 && c != 10 && c != 13) { break }
+        start = start + 1
+    }
+    var end = n
+    while (end > start) {
+        var c = s.charAt(end - 1)
+        if (c != 32 && c != 9 && c != 10 && c != 13) { break }
+        end = end - 1
+    }
+    return s.substring(start, end)
+}
+
+parseFloatStrict(String s): Double {
+    if (s == null) { throw "parseFloat: null input" }
+    var n = s.length
+    if (n == 0) { throw "parseFloat: empty input" }
+    var i = 0
+    var sign = 1.0
+    var c = s.charAt(0)
+    if (c == 45) { sign = -1.0; i = 1 }
+    else if (c == 43) { i = 1 }
+    if (i >= n) { throw "parseFloat: sign only" }
+    var intPart = 0.0
+    var sawDigit = 0
+    while (i < n) {
+        var ch = s.charAt(i)
+        if (ch >= 48 && ch <= 57) {
+            intPart = intPart * 10.0 + ch - 48.0
+            sawDigit = 1
+            i = i + 1
+        } else { break }
+    }
+    var base = sign * intPart
+    var fracAcc = 0.0
+    var div = 1.0
+    var hasDot = 0
+    if (i < n) {
+        if (s.charAt(i) == 46) {
+            hasDot = 1
+            i = i + 1
+        }
+    }
+    while (i < n && hasDot == 1) {
+        var ch = s.charAt(i)
+        if (ch >= 48 && ch <= 57) {
+            fracAcc = fracAcc * 10.0 + ch - 48.0
+            div = div * 10.0
+            i = i + 1
+        } else { break }
+    }
+    if (sawDigit == 0 && hasDot == 0) { throw "parseFloat: no digits" }
+    if (i < n) { throw "parseFloat: trailing garbage" }
+    var frac = fracAcc / div
+    var value = base + frac
+    return value
+}
+
+// Source: shared/math.kof (40 Newton iterations — see lab 3.1)
+sqrt(Double x): Double {
+    if (x <= 0.0) {
+        return 0.0
+    }
+    var g = x
+    var i = 0
+    while (i < 40) {
+        g = 0.5 * (g + x / g)
+        i = i + 1
+    }
+    return g
+}
+
+mean(List<Double> xs): Double {
+    var n = xs.size()
+    if (n == 0) {
+        return 0.0
+    }
+    var s = 0.0
+    var i = 0
+    while (i < n) {
+        s = s + xs.get(i)
+        i = i + 1
+    }
+    var nf = 1.0 * n
+    return s / nf
+}
+
+stddev(List<Double> xs, Double mu): Double {
+    var n = xs.size()
+    if (n == 0) {
+        return 0.0
+    }
+    var acc = 0.0
+    var i = 0
+    while (i < n) {
+        var d = xs.get(i) - mu
+        acc = acc + d * d
+        i = i + 1
+    }
+    var nf = 1.0 * n
+    var v = acc / nf
+    return sqrt(v)
+}
+
+zscore(List<Double> xs): List<Double> {
+    var n = xs.size()
+    if (n == 0) { throw "zscore: empty column" }
+    var mu = mean(xs)
+    var sd = stddev(xs, mu)
+    if (sd == 0.0) { throw "zscore: zero variance column" }
+    var out = listOf<Double>()
+    var i = 0
+    while (i < n) {
+        var z = (xs.get(i) - mu) / sd
+        out.add(z)
+        i = i + 1
+    }
+    return out
+}
+
+loadColumn(String path, String delim, Int colIdx, Int hasHeader): List<Double> {
+    var raw = File(path).readText()
+    if (raw == null) { throw "linreg: cannot read " + path }
+    var lines = split(raw, "\n")
+    var out = listOf<Double>()
+    var n = lines.size()
+    var i = 0
+    if (hasHeader == 1) { i = 1 }
+    while (i < n) {
+        var line = trim(lines.get(i))
+        if (line.length > 0) {
+            var cols = split(line, delim)
+            out.add(parseFloatStrict(trim(cols.get(colIdx))))
+        }
+        i = i + 1
+    }
+    return out
+}
+
+// ─── model ─────────────────────────────────────────────────────────────
+
+record LinReg(Double w, Double b)
+
+mse(List<Double> xs, List<Double> ys, Double w, Double b): Double {
+    var n = xs.size()
+    if (n == 0) { throw "mse: empty dataset" }
+    var acc = 0.0
+    var i = 0
+    while (i < n) {
+        var pred = w * xs.get(i) + b
+        var err = pred - ys.get(i)
+        acc = acc + err * err
+        i = i + 1
+    }
+    var nf = 1.0 * n
+    return acc / nf
+}
+
+// trainQuiet: same descent as lab.kof but without epoch logging, so test
+// output stays readable.
+trainQuiet(List<Double> xs, List<Double> ys, Double lr, Int epochs): LinReg {
+    var n = xs.size()
+    var w = 0.0
+    var b = 0.0
+    var nf = 1.0 * n
+    var epoch = 0
+    while (epoch < epochs) {
+        var gradW = 0.0
+        var gradB = 0.0
+        var i = 0
+        while (i < n) {
+            var x = xs.get(i)
+            var y = ys.get(i)
+            var pred = w * x + b
+            var err = pred - y
+            gradW = gradW + err * x
+            gradB = gradB + err
+            i = i + 1
+        }
+        gradW = 2.0 * gradW / nf
+        gradB = 2.0 * gradB / nf
+        w = w - lr * gradW
+        b = b - lr * gradB
+        epoch = epoch + 1
+    }
+    return LinReg(w, b)
+}
+
+predict(LinReg model, Double xNorm): Double {
+    return model.w * xNorm + model.b
+}
+
+predictRaw(LinReg model, Double mu, Double sd, Double sqftRaw): Double {
+    var xn = (sqftRaw - mu) / sd
+    return predict(model, xn)
+}
+
+// ─── tests ─────────────────────────────────────────────────────────────
+
+test "training descends the loss (final < initial)" {
+    var sqft = loadColumn("datasets/houses.tsv", "\t", 0, 1)
+    var price = loadColumn("datasets/houses.tsv", "\t", 4, 1)
+    var xs = zscore(sqft)
+    var initialLoss = mse(xs, price, 0.0, 0.0)
+    var model = trainQuiet(xs, price, 0.1, 500)
+    var finalLoss = mse(xs, price, model.w, model.b)
+    println("initial=" + initialLoss.toString() + " final=" + finalLoss.toString())
+    assert(finalLoss < initialLoss, "final loss must be smaller than initial")
+    assert(finalLoss < 1000000000.0, "final loss should be well below 1e9")
+}
+
+test "learned weight is positive (price grows with sqft)" {
+    var sqft = loadColumn("datasets/houses.tsv", "\t", 0, 1)
+    var price = loadColumn("datasets/houses.tsv", "\t", 4, 1)
+    var xs = zscore(sqft)
+    var model = trainQuiet(xs, price, 0.1, 500)
+    println("w=" + model.w.toString() + " b=" + model.b.toString())
+    assert(model.w > 0.0, "w must be positive")
+}
+
+test "predict(1500 sqft) is in the sane band 150k-300k" {
+    var sqft = loadColumn("datasets/houses.tsv", "\t", 0, 1)
+    var price = loadColumn("datasets/houses.tsv", "\t", 4, 1)
+    var mu = mean(sqft)
+    var sd = stddev(sqft, mu)
+    var xs = zscore(sqft)
+    var model = trainQuiet(xs, price, 0.1, 500)
+    var p = predictRaw(model, mu, sd, 1500.0)
+    println("predicted=" + p.toString())
+    assert(p > 150000.0, "must be above 150k")
+    assert(p < 300000.0, "must be below 300k")
+}
+
+test "predict tracks the observed endpoints monotonically" {
+    var sqft = loadColumn("datasets/houses.tsv", "\t", 0, 1)
+    var price = loadColumn("datasets/houses.tsv", "\t", 4, 1)
+    var mu = mean(sqft)
+    var sd = stddev(sqft, mu)
+    var xs = zscore(sqft)
+    var model = trainQuiet(xs, price, 0.1, 500)
+    var p850 = predictRaw(model, mu, sd, 850.0)
+    var p1500 = predictRaw(model, mu, sd, 1500.0)
+    var p2200 = predictRaw(model, mu, sd, 2200.0)
+    println(p850.toString() + " < " + p1500.toString() + " < " + p2200.toString())
+    assert(p850 < p1500, "bigger house, bigger price (1)")
+    assert(p1500 < p2200, "bigger house, bigger price (2)")
+}
+
+test "mse of the zero model equals mean of squared prices" {
+    var sqft = loadColumn("datasets/houses.tsv", "\t", 0, 1)
+    var price = loadColumn("datasets/houses.tsv", "\t", 4, 1)
+    var xs = zscore(sqft)
+    var zeroModel = mse(xs, price, 0.0, 0.0)
+    // E[y^2] = var(y) + mu^2
+    var mu = mean(price)
+    var sd = stddev(price, mu)
+    var expected = sd * sd + mu * mu
+    var d = zeroModel - expected
+    if (d < 0.0) { d = -d }
+    println("zero-model mse=" + zeroModel.toString() + " expected=" + expected.toString())
+    assert(d < 1.0, "MSE(w=0,b=0) must equal E[y^2]")
+}

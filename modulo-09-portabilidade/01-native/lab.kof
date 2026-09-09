@@ -1,0 +1,22 @@
+// modulo-09-portabilidade/01-native/lab.kof
+// Portabilidade Native/JS: demonstra kof.log universal e kof build gates.
+// Target: JVM (log OK), Native (CONC001 etc.) e JS (CONC003) documentados.
+// Compact.
+main() {
+    log.info("portability check: log works in all targets (LOG001 closed)")
+    println("JVM: log OK")
+    // Simulate native/js gates via log
+    log.info("native: spawn CONC001 would gate, but log OK")
+    log.info("js: spawn CONC003 sequential, but log OK")
+    // File I/O is JVM+JS, native needs writeBytes
+    var txt="portability test"
+    File("modulo-09-portabilidade/01-native/portability.txt").writeText(txt)
+    var back=File("modulo-09-portabilidade/01-native/portability.txt").readText()
+    if(back==txt){ log.info("file I/O OK on JVM") } else{ log.error("file I/O fail") }
+    println("file round-trip: "+back)
+    // kof build commands (documented, not executed here)
+    println("try: kof build --target native modulo-09-portabilidade/01-native/lab.kof")
+    println("try: kof build --target js modulo-09-portabilidade/01-native/lab.kof")
+    File("modulo-09-portabilidade/01-native/portability.txt").delete()
+    log.info("portability done")
+}

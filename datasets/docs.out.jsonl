@@ -1,0 +1,5 @@
+{"id":"d1","title":"Intro to Kof","body":"Kof is a statically typed language targeting JVM and Native. It emphasizes clean syntax.","lang":"en"}
+{"id":"d2","title":"Engenharia de Dados","body":"Data engineering pipelines ingest, transform and serve information at scale.","lang":"pt"}
+{"id":"d3","title":"Vector Stores","body":"A vector store indexes embeddings for similarity search over unstructured data.","lang":"en"}
+{"id":"d4","title":"Agentes Autonomos","body":"An agent combines an LLM with tools and a reasoning loop to perform tasks.","lang":"pt"}
+{"id":"d5","title":"Backpropagation","body":"Backpropagation computes gradients of a loss with respect to model parameters.","lang":"en"}

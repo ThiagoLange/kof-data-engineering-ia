@@ -1,0 +1,134 @@
+// modulo-05-llms/03-cosine-similarity/lab.kof
+//
+// Cosine similarity engine: dot, norm, cosine, distance, top-k retrieval
+// over static embeddings. Vectors are List<Double> (high-precision Double).
+// Demonstrates pure vector math without external embeddings API.
+//
+// Source: shared/math.kof
+// Target: JVM (kof run; default target)
+
+// ─── math helpers (inline shared/math.kof) ───────────────────────────
+
+sqrt(Double x): Double {
+    if (x <= 0.0) { return 0.0 }
+    var g = x
+    var i = 0
+    while (i < 20) { g = 0.5 * (g + x / g); i = i + 1 }
+    return g
+}
+
+// ─── vector ops ──────────────────────────────────────────────────────
+
+dot(List<Double> a, List<Double> b): Double {
+    if (a.size() != b.size()) { throw "cosine: dim mismatch " + a.size().toString() + " vs " + b.size().toString() }
+    if (a.size() == 0) { throw "cosine: empty vectors" }
+    var s = 0.0
+    var i = 0
+    while (i < a.size()) { s = s + a.get(i) * b.get(i); i = i + 1 }
+    return s
+}
+
+norm(List<Double> a): Double {
+    return sqrt(dot(a, a))
+}
+
+cosineSimilarity(List<Double> a, List<Double> b): Double {
+    var nA = norm(a)
+    var nB = norm(b)
+    if (nA == 0.0 || nB == 0.0) { throw "cosine: zero-norm vector" }
+    var d = dot(a, b)
+    return d / (nA * nB)
+}
+
+cosineDistance(List<Double> a, List<Double> b): Double {
+    var sim = cosineSimilarity(a, b)
+    return 1.0 - sim
+}
+
+// cosineSimilarityBatch: multiple candidates vs one query
+cosineSimilarityBatch(List<List<Double>> candidates, List<Double> query): List<Double> {
+    var out = listOf<Double>()
+    var i = 0
+    while (i < candidates.size()) { out.add(cosineSimilarity(candidates.get(i), query)); i = i + 1 }
+    return out
+}
+
+// topK: indices of k highest similarities (descending). O(n*k) selection.
+record ScoredIdx(Int idx, Double score)
+
+topK(List<Double> scores, Int k): List<Int> {
+    if (k <= 0) { throw "topK: k must be >0" }
+    if (k > scores.size()) { k = scores.size() }
+    // copy indices
+    var remaining = listOf<Int>()
+    var i = 0
+    while (i < scores.size()) { remaining.add(i); i = i + 1 }
+    var out = listOf<Int>()
+    var t = 0
+    while (t < k) {
+        var bestPos = 0
+        var bestScore = scores.get(remaining.get(0))
+        var j = 1
+        while (j < remaining.size()) {
+            var idx = remaining.get(j)
+            var sc = scores.get(idx)
+            if (sc > bestScore) { bestScore = sc; bestPos = j }
+            j = j + 1
+        }
+        var chosen = remaining.get(bestPos)
+        out.add(chosen)
+        // remove bestPos by rebuilding list
+        var next = listOf<Int>()
+        var r = 0
+        while (r < remaining.size()) { if (r != bestPos) { next.add(remaining.get(r)) } r = r + 1 }
+        remaining = next
+        t = t + 1
+    }
+    return out
+}
+
+// ─── demo ──────────────────────────────────────────────────────────────
+
+main() {
+    // Static embeddings (4 dims) for 5 concepts + one query
+    var docEmbeds = listOf<List<Double>>()
+    var labels = listOf<String>()
+
+    var v1 = listOf<Double>(); v1.add(0.9); v1.add(0.1); v1.add(0.0); v1.add(0.2); docEmbeds.add(v1); labels.add("Kof lang")
+    var v2 = listOf<Double>(); v2.add(0.1); v2.add(0.9); v2.add(0.3); v2.add(0.0); docEmbeds.add(v2); labels.add("Data engineering")
+    var v3 = listOf<Double>(); v3.add(0.2); v3.add(0.0); v3.add(0.9); v3.add(0.1); docEmbeds.add(v3); labels.add("Vector store")
+    var v4 = listOf<Double>(); v4.add(0.8); v4.add(0.2); v4.add(0.1); v4.add(0.1); docEmbeds.add(v4); labels.add("Kof syntax")
+    var v5 = listOf<Double>(); v5.add(0.0); v5.add(0.8); v5.add(0.2); v5.add(0.1); docEmbeds.add(v5); labels.add("ETL pipeline")
+
+    var query = listOf<Double>(); query.add(0.85); query.add(0.15); query.add(0.05); query.add(0.15)
+
+    println("query vs docs:")
+    var sims = cosineSimilarityBatch(docEmbeds, query)
+    var i = 0
+    while (i < sims.size()) {
+        var sim = sims.get(i)
+        var dist = 1.0 - sim
+        println("  " + labels.get(i) + " sim=" + sim.toString() + " dist=" + dist.toString())
+        i = i + 1
+    }
+
+    // Orthogonal and identical checks
+    var a = listOf<Double>(); a.add(1.0); a.add(0.0)
+    var b = listOf<Double>(); b.add(0.0); b.add(1.0)
+    var simOrtho = cosineSimilarity(a,b)
+    println("orthogonal sim=" + simOrtho.toString() + " (expected ~0) dist=" + cosineDistance(a,b).toString())
+    var c = listOf<Double>(); c.add(1.0); c.add(1.0)
+    var d = listOf<Double>(); d.add(2.0); d.add(2.0)
+    var simIdent = cosineSimilarity(c,d)
+    println("scaled identical sim=" + simIdent.toString() + " (expected ~1)")
+
+    // top-k retrieval (k=2)
+    var top = topK(sims, 2)
+    println("top-2 retrieval:")
+    var j = 0
+    while (j < top.size()) {
+        var idx = top.get(j)
+        println("  rank " + j.toString() + " " + labels.get(idx) + " score=" + sims.get(idx).toString())
+        j = j + 1
+    }
+}

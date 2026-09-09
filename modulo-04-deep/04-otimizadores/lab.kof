@@ -1,0 +1,218 @@
+// modulo-04-deep/04-otimizadores/lab.kof
+//
+// Adam optimizer + checkpoint persistence (JSON).
+// Demonstrates: per-parameter momentum m, velocity v, bias-corrected
+// updates, and save/load of weights via json.encode / json.decode / File I/O.
+//
+// Source: shared/math.kof
+// Target: JVM (json.encode/decode<T> + File are JVM-supported).
+
+// ─── math helpers ────────────────────────────────────────────────────
+
+sqrt(Double x): Double {
+    if (x <= 0.0) { return 0.0 }
+    var g = x
+    var i = 0
+    while (i < 20) { g = 0.5 * (g + x / g); i = i + 1 }
+    return g
+}
+
+powApprox(Double base, Int exp): Double {
+    var r = 1.0
+    var i = 0
+    while (i < exp) { r = r * base; i = i + 1 }
+    return r
+}
+
+// ─── Adam state ──────────────────────────────────────────────────────
+
+class Adam(List<Double> params, List<Double> m, List<Double> v, Double lr, Double b1, Double b2, Double eps, List<Int> stepBox) {
+    // step(grads): one Adam update over params (same size as grads)
+    step(List<Double> grads): Int {
+        if (grads.size() != params.size()) { throw "adam: grad size mismatch" }
+        if (m.size() != params.size()) { throw "adam: m size mismatch" }
+        // increment step
+        var t = stepBox.get(0) + 1
+        stepBox.set(0, t)
+        var tf = 1.0 * t
+        // bias corrections: 1 - beta^t
+        var b1t = powApprox(b1, t)
+        var b2t = powApprox(b2, t)
+        var bc1 = 1.0 - b1t
+        var bc2 = 1.0 - b2t
+        var i = 0
+        while (i < params.size()) {
+            var g = grads.get(i)
+            var mi = m.get(i) * b1 + g * (1.0 - b1)
+            var vi = v.get(i) * b2 + g * g * (1.0 - b2)
+            m.set(i, mi)
+            v.set(i, vi)
+            var mHat = mi / bc1
+            var vHat = vi / bc2
+            var denom = sqrt(vHat) + eps
+            var delta = lr * mHat / denom
+            var p = params.get(i) - delta
+            params.set(i, p)
+            i = i + 1
+        }
+        return 0
+    }
+
+    getParam(Int i): Double { return params.get(i) }
+    getStep(): Int { return stepBox.get(0) }
+}
+
+makeAdam(List<Double> initParams, Double lr): Adam {
+    var n = initParams.size()
+    var p = listOf<Double>()
+    var mm = listOf<Double>()
+    var vv = listOf<Double>()
+    var i = 0
+    while (i < n) { p.add(initParams.get(i)); mm.add(0.0); vv.add(0.0); i = i + 1 }
+    var stepBox = listOf<Int>()
+    stepBox.add(0)
+    return Adam(p, mm, vv, lr, 0.9, 0.999, 0.00000001, stepBox)
+}
+
+// ─── checkpoint ──────────────────────────────────────────────────────
+// 0.3.2-compat: avoid List<Double> in record for json (GenericSignatureFormatError).
+// Checkpoint is persisted as manual text: line1 = csv of params, line2 = step.
+record Checkpoint(String paramsCsv, Int step)
+
+paramsToCsv(List<Double> p): String {
+    var s = ""
+    var i = 0
+    while (i < p.size()) {
+        if (i > 0) { s = s + "," }
+        s = s + p.get(i).toString()
+        i = i + 1
+    }
+    return s
+}
+
+parseCsvToDoubles(String csv): List<Double> {
+    var out = listOf<Double>()
+    // reuse helper split via inline: we have no split here yet, implement minimal
+    var start = 0
+    var n = csv.length
+    var i = 0
+    while (i <= n) {
+        if (i == n || csv.charAt(i) == 44) {
+            var tok = csv.substring(start, i)
+            if (tok.length > 0) {
+                // inline parseFloatStrict (duplicate to avoid circular dep)
+                var sign = 1.0
+                var k = 0
+                if (tok.charAt(0) == 45) { sign = -1.0; k = 1 }
+                var intPart = 0.0
+                var saw = 0
+                while (k < tok.length) {
+                    var ch = tok.charAt(k)
+                    if (ch >= 48 && ch <= 57) { intPart = intPart * 10.0 + ch - 48.0; saw = 1; k = k + 1 } else { break }
+                }
+                var base = sign * intPart
+                var fracAcc = 0.0
+                var div = 1.0
+                var hasDot = 0
+                if (k < tok.length && tok.charAt(k) == 46) { hasDot = 1; k = k + 1 }
+                while (k < tok.length && hasDot == 1) {
+                    var ch2 = tok.charAt(k)
+                    if (ch2 >= 48 && ch2 <= 57) { fracAcc = fracAcc * 10.0 + ch2 - 48.0; div = div * 10.0; k = k + 1 } else { break }
+                }
+                var frac = fracAcc / div
+                if (sign < 0.0) { frac = -frac }
+                var v = base + frac
+                out.add(v)
+            }
+            start = i + 1
+        }
+        i = i + 1
+    }
+    return out
+}
+
+saveCheckpoint(String path, Adam opt): Int {
+    var csv = paramsToCsv(opt.params)
+    var txt = csv + "\n" + opt.getStep().toString()
+    File(path).writeText(txt)
+    return 0
+}
+
+loadCheckpoint(String path): Checkpoint {
+    var raw = File(path).readText()
+    if (raw == null) { throw "checkpoint: cannot read " + path }
+    // split on newline
+    var nl = -1
+    var i = 0
+    while (i < raw.length) { if (raw.charAt(i) == 10) { nl = i; i = raw.length } else { i = i + 1 } }
+    if (nl == -1) { throw "checkpoint: bad format" }
+    var csv = raw.substring(0, nl)
+    var stepStr = raw.substring(nl + 1, raw.length)
+    // trim stepStr
+    var s = 0
+    while (s < stepStr.length) { var c = stepStr.charAt(s); if (c != 32 && c != 10 && c != 13) { break } s = s + 1 }
+    var e = stepStr.length
+    while (e > s) { var c2 = stepStr.charAt(e - 1); if (c2 != 32 && c2 != 10 && c2 != 13) { break } e = e - 1 }
+    var trimmed = stepStr.substring(s, e)
+    // parse step int
+    var sign = 1
+    var k2 = 0
+    if (trimmed.length > 0 && trimmed.charAt(0) == 45) { sign = -1; k2 = 1 }
+    var acc = 0
+    while (k2 < trimmed.length) { var ch = trimmed.charAt(k2); acc = acc * 10 + (ch - 48); k2 = k2 + 1 }
+    var step = sign * acc
+    return Checkpoint(csv, step)
+}
+
+// ─── demo loss: f(x) = (x - 5)^2 + (y - -3)^2 ───────────────────────
+
+gradLoss(List<Double> params): List<Double> {
+    // params [x, y], target [5, -3]
+    var g = listOf<Double>()
+    var gx = 2.0 * (params.get(0) - 5.0)
+    var gy = 2.0 * (params.get(1) - -3.0)
+    g.add(gx)
+    g.add(gy)
+    return g
+}
+
+lossValue(List<Double> params): Double {
+    var dx = params.get(0) - 5.0
+    var dy = params.get(1) - -3.0
+    return dx * dx + dy * dy
+}
+
+// ─── demo ──────────────────────────────────────────────────────────────
+
+main() {
+    var init = listOf<Double>()
+    init.add(0.0)
+    init.add(0.0)
+    var opt = makeAdam(init, 0.2)
+    println("init params: [" + opt.getParam(0).toString() + " " + opt.getParam(1).toString() + "] loss=" + lossValue(opt.params).toString())
+
+    var iter = 0
+    while (iter < 20) {
+        var g = gradLoss(opt.params)
+        opt.step(g)
+        var lv = lossValue(opt.params)
+        println("step " + opt.getStep().toString() + " params=[" + opt.getParam(0).toString() + " " + opt.getParam(1).toString() + "] loss=" + lv.toString() + " grad=[" + g.get(0).toString() + " " + g.get(1).toString() + "]")
+        iter = iter + 1
+    }
+
+    // checkpoint save/load round-trip
+    var ckPath = "modulo-04-deep/04-otimizadores/adam.ckpt.txt"
+    saveCheckpoint(ckPath, opt)
+    println("saved checkpoint to " + ckPath)
+    var loaded = loadCheckpoint(ckPath)
+    var loadedParams = parseCsvToDoubles(loaded.paramsCsv)
+    println("loaded step=" + loaded.step.toString() + " params=[" + loadedParams.get(0).toString() + " " + loadedParams.get(1).toString() + "]")
+    var d0 = loadedParams.get(0) - opt.getParam(0)
+    if (d0 < 0.0) { d0 = -d0 }
+    var d1 = loadedParams.get(1) - opt.getParam(1)
+    if (d1 < 0.0) { d1 = -d1 }
+    println("recovery error: " + d0.toString() + " " + d1.toString())
+    // cleanup
+    File(ckPath).delete()
+    println("checkpoint file deleted")
+}

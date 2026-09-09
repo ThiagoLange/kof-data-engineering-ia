@@ -1,0 +1,150 @@
+// modulo-01-fundamentos/02-jsonl-schema/exercise.kof
+//
+// Run with: kof test modulo-01-fundamentos/02-jsonl-schema/exercise.kof
+
+// ─── helpers ───────────────────────────────────────────────────────────
+
+split(String s, String delim): List<String> {
+    var out = listOf<String>()
+    var start = 0
+    var n = s.length
+    var i = 0
+    while (i < n) {
+        if (s.charAt(i) == delim.charAt(0)) {
+            out.add(s.substring(start, i))
+            start = i + 1
+        }
+        i = i + 1
+    }
+    out.add(s.substring(start, n))
+    return out
+}
+
+trim(String s): String {
+    var n = s.length
+    var start = 0
+    while (start < n) {
+        var c = s.charAt(start)
+        if (c != 32 && c != 9 && c != 10 && c != 13) { break }
+        start = start + 1
+    }
+    var end = n
+    while (end > start) {
+        var c = s.charAt(end - 1)
+        if (c != 32 && c != 9 && c != 10 && c != 13) { break }
+        end = end - 1
+    }
+    return s.substring(start, end)
+}
+
+// ─── domain ────────────────────────────────────────────────────────────
+
+record Doc(String id, String title, String body, String lang)
+record Validation(Int ok, String reason)
+
+validateDoc(Doc d): Validation {
+    if (d.id.length == 0) { return Validation(0, "missing id") }
+    if (d.title.length == 0) { return Validation(0, "missing title") }
+    if (d.body == null) { return Validation(0, "missing body") }
+    if (d.lang.length == 0) { return Validation(0, "missing lang") }
+    return Validation(1, "ok")
+}
+
+parseJsonl(String raw): List<Doc> {
+    var lines = split(raw, "\n")
+    var out = listOf<Doc>()
+    var n = lines.size()
+    var i = 0
+    while (i < n) {
+        var line = trim(lines.get(i))
+        if (line.length == 0) {
+            i = i + 1
+        } else {
+            try {
+                var d = json.decode<Doc>(line)
+                var v = validateDoc(d)
+                if (v.ok == 1) { out.add(d) }
+            } catch (String e) {
+                // skip malformed
+            }
+            i = i + 1
+        }
+    }
+    return out
+}
+
+writeJsonl(List<Doc> docs): String {
+    var sb = ""
+    var n = docs.size()
+    var i = 0
+    while (i < n) {
+        if (i > 0) { sb = sb + "\n" }
+        sb = sb + json.encode(docs.get(i))
+        i = i + 1
+    }
+    return sb
+}
+
+// ─── tests ─────────────────────────────────────────────────────────────
+
+test "json encode preserves record fields" {
+    var d = Doc("d1", "T", "B", "en")
+    var j = json.encode(d)
+    assert(j.contains("\"id\":\"d1\""), "id in json")
+    assert(j.contains("\"title\":\"T\""), "title in json")
+}
+
+test "json decode roundtrip" {
+    var j = "{\"id\":\"x\",\"title\":\"Y\",\"body\":\"Z\",\"lang\":\"en\"}"
+    var d = json.decode<Doc>(j)
+    assert(d.id == "x", "id")
+    assert(d.title == "Y", "title")
+    assert(d.body == "Z", "body")
+    assert(d.lang == "en", "lang")
+}
+
+test "validateDoc accepts complete record" {
+    var v = validateDoc(Doc("a", "b", "c", "d"))
+    assert(v.ok == 1, "valid")
+}
+
+test "validateDoc rejects empty id" {
+    var v = validateDoc(Doc("", "b", "c", "d"))
+    assert(v.ok == 0, "invalid")
+    assert(v.reason == "missing id", "reason")
+}
+
+test "validateDoc rejects empty title" {
+    var v = validateDoc(Doc("a", "", "c", "d"))
+    assert(v.ok == 0, "invalid")
+}
+
+test "parseJsonl skips blank lines and malformed" {
+    var raw = "{\"id\":\"a\",\"title\":\"A\",\"body\":\"x\",\"lang\":\"en\"}\n\nnot-json\n{\"id\":\"b\",\"title\":\"B\",\"body\":\"y\",\"lang\":\"pt\"}"
+    var docs = parseJsonl(raw)
+    assert(docs.size() == 2, "expected 2 valid; got " + docs.size().toString())
+    assert(docs.get(0).id == "a", "first id")
+    assert(docs.get(1).id == "b", "second id")
+}
+
+test "writeJsonl joins with newline" {
+    var docs = listOf<Doc>()
+    docs.add(Doc("a", "A", "x", "en"))
+    docs.add(Doc("b", "B", "y", "pt"))
+    var s = writeJsonl(docs)
+    var lines = split(s, "\n")
+    assert(lines.size() == 2, "two lines")
+    assert(lines.get(0).contains("\"id\":\"a\""), "first line")
+    assert(lines.get(1).contains("\"id\":\"b\""), "second line")
+}
+
+test "parseJsonl reads real dataset (5 docs)" {
+    var raw = File("datasets/docs.jsonl").readText()
+    var docs = parseJsonl(raw)
+    assert(docs.size() == 5, "expected 5; got " + docs.size().toString())
+    var d1 = docs.get(0)
+    assert(d1.id == "d1", "d1 id")
+    assert(d1.lang == "en", "d1 lang")
+    var d2 = docs.get(1)
+    assert(d2.lang == "pt", "d2 lang")
+}

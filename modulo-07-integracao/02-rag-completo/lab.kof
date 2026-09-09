@@ -1,0 +1,56 @@
+// modulo-07-integracao/02-rag-completo/lab.kof
+// RAG completo: chunking (05-02) → embeddings fake (05-03) → VectorStore (05-04) → retrieval → prompt.
+// Sem chamada LLM real; FakeLLM simula geração a partir do contexto recuperado.
+// Target: JVM 0.3.2 compact.
+split(String s, String delim): List<String> { var out=listOf<String>(); var start=0; var n=s.length; var i=0; while(i<n){ if(s.charAt(i)==delim.charAt(0)){ out.add(s.substring(start,i)); start=i+1 } i=i+1 } out.add(s.substring(start,n)); return out }
+trim(String s): String { var n=s.length; var start=0; while(start<n){ var c=s.charAt(start); if(c!=32&&c!=9&&c!=10&&c!=13){break} start=start+1 } var end=n; while(end>start){ var c=s.charAt(end-1); if(c!=32&&c!=9&&c!=10&&c!=13){break} end=end-1 } return s.substring(start,end) }
+wordSplit(String t): List<String> { var out=listOf<String>(); var raw=split(t," "); var i=0; while(i<raw.size()){ var w=trim(raw.get(i)); if(w.length>0){out.add(w)} i=i+1 } return out }
+chunkByWords(String text, Int window, Int overlap): List<String> { if(window<=0){throw "chunk: window>0"} if(overlap>=window){throw "chunk: overlap<window"} var words=wordSplit(text); var n=words.size(); var out=listOf<String>(); if(n==0){return out} var step=window-overlap; var start=0; while(start<n){ var end=start+window; if(end>n){end=n} var sb=""; var i=start; while(i<end){ if(i>start){sb=sb+" "} sb=sb+words.get(i); i=i+1 } out.add(sb); if(end==n){start=n} else{start=start+step} } return out }
+sqrt(Double x): Double { if(x<=0.0){return 0.0} var g=x; var i=0; while(i<20){ g=0.5*(g+x/g); i=i+1 } return g }
+dot(List<Double> a, List<Double> b): Double { if(a.size()!=b.size()){throw "dot dim"} var s=0.0; var i=0; while(i<a.size()){ s=s+a.get(i)*b.get(i); i=i+1 } return s }
+norm(List<Double> a): Double { return sqrt(dot(a,a)) }
+fakeEmbed(String text, Int dim): List<Double> { var buckets=listOf<Double>(); var i=0; while(i<dim){buckets.add(0.0); i=i+1} var j=0; while(j<text.length){ var c=text.charAt(j); var idx=j%dim; buckets.set(idx, buckets.get(idx)+1.0*c); j=j+1 } var n=norm(buckets); if(n==0.0){return buckets} var out=listOf<Double>(); var k=0; while(k<dim){ out.add(buckets.get(k)/n); k=k+1 } return out }
+cosineSim(List<Double> a, List<Double> b): Double { var nA=norm(a); var nB=norm(b); if(nA==0.0||nB==0.0){return 0.0} return dot(a,b)/(nA*nB) }
+embeddingToCsv(List<Double> v): String { var s=""; var i=0; while(i<v.size()){ if(i>0){s=s+","} s=s+v.get(i).toString(); i=i+1 } return s }
+csvToEmbedding(String csv): List<Double> { var out=listOf<Double>(); var start=0; var n=csv.length; var i=0; while(i<=n){ if(i==n||csv.charAt(i)==44){ var tok=csv.substring(start,i); if(tok.length>0){ var sign=1.0; var k=0; if(tok.charAt(0)==45){sign=-1.0; k=1} var intPart=0.0; while(k<tok.length){ var ch=tok.charAt(k); if(ch>=48&&ch<=57){intPart=intPart*10.0+ch-48.0; k=k+1} else{break} } var base=sign*intPart; var fracAcc=0.0; var div=1.0; var hasDot=0; if(k<tok.length&&tok.charAt(k)==46){hasDot=1; k=k+1} while(k<tok.length&&hasDot==1){ var ch2=tok.charAt(k); if(ch2>=48&&ch2<=57){fracAcc=fracAcc*10.0+ch2-48.0; div=div*10.0; k=k+1} else{break} } var frac=fracAcc/div; if(sign<0.0){frac=-frac} out.add(base+frac) } start=i+1 } i=i+1 } return out }
+record DocJson(String id, String title, String body, String lang)
+record DocEntry(String id, String text, String embeddingCsv)
+record Retrieval(String id, String text, Double score)
+class VectorStore(List<DocEntry> docs, Int dim) { add(String id, String text): Int { var emb=fakeEmbed(text,dim); docs.add(DocEntry(id,text,embeddingToCsv(emb))); return 0 } search(String q, Int k): List<Retrieval> { var qEmb=fakeEmbed(q,dim); var scores=listOf<Double>(); var i=0; while(i<docs.size()){ scores.add(cosineSim(csvToEmbedding(docs.get(i).embeddingCsv), qEmb)); i=i+1 } var remaining=listOf<Int>(); var r=0; while(r<scores.size()){ remaining.add(r); r=r+1 } if(k>remaining.size()){k=remaining.size()} var out=listOf<Retrieval>(); var t=0; while(t<k){ var bestPos=0; var best=scores.get(remaining.get(0)); var j=1; while(j<remaining.size()){ var idx=remaining.get(j); var sc=scores.get(idx); if(sc>best){best=sc; bestPos=j} j=j+1 } var chosen=remaining.get(bestPos); var e=docs.get(chosen); out.add(Retrieval(e.id,e.text,scores.get(chosen))); var nxt=listOf<Int>(); var rr=0; while(rr<remaining.size()){ if(rr!=bestPos){nxt.add(remaining.get(rr))} rr=rr+1 } remaining=nxt; t=t+1 } return out } }
+makeStore(Int dim): VectorStore { return VectorStore(listOf<DocEntry>(),dim) }
+loadDocs(String path): List<DocJson> { var raw=File(path).readText(); if(raw==null){throw "docs: cannot read "+path} var lines=split(raw,"\n"); var out=listOf<DocJson>(); var i=0; while(i<lines.size()){ var line=trim(lines.get(i)); if(line.length>0){out.add(json.decode<DocJson>(line))} i=i+1 } return out }
+safeHead(String s, Int n): String { if(s.length <= n){return s} return s.substring(0,n) }
+buildPrompt(String query, List<Retrieval> ctx): String { var p="Context:\n"; var i=0; while(i<ctx.size()){ p=p+"- ["+ctx.get(i).id+"] "+safeHead(ctx.get(i).text,60)+"... (score "+ctx.get(i).score.toString()+")\n"; i=i+1 } p=p+"\nQuestion: "+query+"\nAnswer based on context:"; return p }
+// FakeLLM: concatenates context ids as answer (deterministic)
+fakeGenerate(String prompt): String { return "Answer includes "+prompt.substring(0,80)+"..." }
+main() {
+    var docs=loadDocs("datasets/docs.jsonl")
+    println("docs loaded: "+docs.size().toString())
+    var store=makeStore(4)
+    var i=0; while(i<docs.size()){
+        var d=docs.get(i)
+        // chunk each doc body into 2 chunks (window 8, overlap 3) and index each chunk as separate entry
+        var chunks=chunkByWords(d.body, 8, 3)
+        var c=0; while(c<chunks.size()){
+            var id=d.id+"-c"+c.toString()
+            store.add(id, d.title+" "+chunks.get(c))
+            c=c+1
+        }
+        i=i+1
+    }
+    println("indexed chunks: "+store.docs.size().toString())
+    var query="Kof statically typed language"
+    var hits=store.search(query, 3)
+    println("query \""+query+"\" top-3:")
+    var h=0; while(h<hits.size()){ var r=hits.get(h); println("  "+r.id+" score="+r.score.toString()+" text=\""+r.text.substring(0,40)+"...\""); h=h+1 }
+    var prompt=buildPrompt(query, hits)
+    println("\n--- Prompt ---\n"+safeHead(prompt,300))
+    var answer=fakeGenerate(prompt)
+    println("\n--- FakeLLM Answer ---\n"+safeHead(answer,200))
+    // persist store
+    var path="modulo-07-integracao/02-rag-completo/store.jsonl"
+    var sb=""; var k=0; while(k<store.docs.size()){ if(k>0){sb=sb+"\n"} sb=sb+json.encode(store.docs.get(k)); k=k+1 } File(path).writeText(sb)
+    println("persisted "+store.docs.size().toString()+" entries to "+path)
+    File(path).delete()
+    println("cleaned")
+}

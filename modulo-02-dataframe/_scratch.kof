@@ -1,0 +1,13 @@
+// scratch 18: nested generic lists for generic CSV loader
+main() {
+    var cols = listOf<List<Double>>()
+    var a = listOf<Double>()
+    a.add(1.0)
+    var b = listOf<Double>()
+    b.add(2.0)
+    cols.add(a)
+    cols.add(b)
+    var v = cols.get(1).get(0)
+    println(v.toString())
+    println("ncols: " + cols.size().toString())
+}

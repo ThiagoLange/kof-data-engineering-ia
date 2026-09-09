@@ -1,0 +1,97 @@
+// shared/math.kof
+// Numeric helpers for ML labs. Pure double-precision arithmetic.
+
+// abs, max, min, sqrt, powi (integer power), sum, mean, variance, stddev.
+abs(Double x): Double {
+    if (x < 0.0) {
+        return -x
+    }
+    return x
+}
+
+max(Double a, Double b): Double {
+    if (a > b) {
+        return a
+    }
+    return b
+}
+
+min(Double a, Double b): Double {
+    if (a < b) {
+        return a
+    }
+    return b
+}
+
+// sqrt via Newton's method (10 iterations is enough for typical magnitudes).
+sqrt(Double x): Double {
+    if (x <= 0.0) {
+        return 0.0
+    }
+    var g = x
+    var i = 0
+    while (i < 10) {
+        g = 0.5 * (g + x / g)
+        i = i + 1
+    }
+    return g
+}
+
+// powi(x, n): x raised to a non-negative integer power.
+powi(Double x, Int n): Double {
+    var r = 1.0
+    var k = 0
+    while (k < n) {
+        r = r * x
+        k = k + 1
+    }
+    return r
+}
+
+// mean(xs): arithmetic mean. Returns 0.0 on empty list.
+mean(List<Double> xs): Double {
+    var n = xs.size()
+    if (n == 0) {
+        return 0.0
+    }
+    var s = 0.0
+    var i = 0
+    while (i < n) {
+        s = s + xs.get(i)
+        i = i + 1
+    }
+    return s / n.toDouble()
+}
+
+// variance(xs, mu): population variance given a precomputed mean.
+variance(List<Double> xs, Double mu): Double {
+    var n = xs.size()
+    if (n == 0) {
+        return 0.0
+    }
+    var acc = 0.0
+    var i = 0
+    while (i < n) {
+        var d = xs.get(i) - mu
+        acc = acc + d * d
+        i = i + 1
+    }
+    return acc / n.toDouble()
+}
+
+// dot(a, b): dot product of two equal-length vectors.
+dot(List<Double> a, List<Double> b): Double {
+    var n = a.size()
+    var s = 0.0
+    var i = 0
+    while (i < n) {
+        s = s + a.get(i) * b.get(i)
+        i = i + 1
+    }
+    return s
+}
+
+// norm(a): L2 norm of a vector.
+norm(List<Double> a): Double {
+    return sqrt(dot(a, a))
+}

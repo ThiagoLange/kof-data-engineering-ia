@@ -1,0 +1,258 @@
+// modulo-05-llms/01-llm-client/lab.kof
+//
+// Injectable LLM chat client (OpenAI/Anthropic style). The HTTP call is
+// isolated behind the Transport interface so tests can inject a FakeTransport
+// with scripted responses. LLMClient.complete() retries transient failures
+// (HTTP 5xx / 429) with manual exponential backoff via time.sleep().
+// The live HTTP demo is guarded by secrets.get("LLM_API_KEY", "") and prints
+// 'skipped' when no key is configured — everything here runs offline.
+//
+// Source: shared/env.kof, shared/strutils.kof
+// Target: JVM (http.post, time.sleep and secrets are JVM-supported).
+
+// ─── helpers (inline copies of shared/*.kof) ───────────────────────────
+
+// indexOf(haystack, needle): first index of needle, or -1 if absent.
+indexOf(String s, String needle): Int {
+    if (needle.length == 0) {
+        return 0
+    }
+    var n = s.length
+    var m = needle.length
+    if (m > n) {
+        return -1
+    }
+    var limit = n - m
+    var i = 0
+    while (i <= limit) {
+        var match = 1
+        var j = 0
+        while (j < m) {
+            if (s.charAt(i + j) != needle.charAt(j)) {
+                match = 0
+                j = m
+            } else {
+                j = j + 1
+            }
+        }
+        if (match == 1) {
+            return i
+        }
+        i = i + 1
+    }
+    return -1
+}
+
+// ─── domain ────────────────────────────────────────────────────────────
+
+// One chat message. role is "system" | "user" | "assistant".
+record ChatMessage(String role, String content)
+
+// Transport abstracts the raw HTTP call so the client is testable offline.
+// Implementations throw a String error on failure; transient errors must
+// start with "HTTP 5" or "HTTP 429" so the retry policy can recognize them.
+interface Transport {
+    send(String url, String body, String headers): String
+}
+
+// HttpTransport performs a real http.post. Only instantiated in the
+// optional live demo, never in tests.
+class HttpTransport implements Transport {
+    String apiKey
+
+    constructor(String apiKey) {
+        this.apiKey = apiKey
+    }
+
+    send(String url, String body, String headers): String {
+        var allHeaders = headers + "\nAuthorization: Bearer " + this.apiKey
+        // http.post throws a String on network/HTTP failure (JVM runtime).
+        return http.post(url, body, allHeaders)
+    }
+}
+
+// FakeTransport returns programmed responses and fails a fixed number of
+// times first — exactly what an LLM test double needs.
+class FakeTransport implements Transport {
+    Int failsLeft
+    Int calls
+    String respBody
+
+    constructor(Int failsLeft, String respBody) {
+        this.failsLeft = failsLeft
+        this.respBody = respBody
+    }
+
+    send(String url, String body, String headers): String {
+        this.calls = this.calls + 1
+        if (this.failsLeft > 0) {
+            this.failsLeft = this.failsLeft - 1
+            throw "HTTP 500: scripted failure"
+        }
+        return this.respBody
+    }
+}
+
+// ErrorTransport always throws the same programmed error — used to prove
+// that non-retryable HTTP errors (4xx) fail fast without burning retries.
+class ErrorTransport implements Transport {
+    String err
+
+    constructor(String err) {
+        this.err = err
+    }
+
+    send(String url, String body, String headers): String {
+        throw this.err
+    }
+}
+
+// extractJsonString(body, key): minimal scanner that pulls the string value
+// of "key" out of a JSON document. Needed because json.decode<T> cannot
+// handle records nested inside List fields in 0.1.3-beta (JSN00x gap) — an
+// OpenAI-style response nests the message inside choices[0].
+extractJsonString(String body, String key): String {
+    var pat = "\"" + key + "\":\""
+    var n = body.length
+    var m = pat.length
+    var i = 0
+    while (i <= n - m) {
+        var match = 1
+        var j = 0
+        while (j < m) {
+            if (body.charAt(i + j) != pat.charAt(j)) {
+                match = 0
+                j = m
+            } else {
+                j = j + 1
+            }
+        }
+        if (match == 1) {
+            var sb = ""
+            var k = i + m
+            while (k < n) {
+                var c = body.charAt(k)
+                if (c == 92) {
+                    // backslash escape: translate the common ones (\n, \t)
+                    k = k + 1
+                    if (k < n) {
+                        var e = body.charAt(k)
+                        if (e == 110) {
+                            sb = sb + "\n"
+                        } else if (e == 116) {
+                            sb = sb + "\t"
+                        } else {
+                            sb = sb + body.substring(k, k + 1)
+                        }
+                    }
+                } else if (c == 34) {
+                    // closing quote
+                    return sb
+                } else {
+                    sb = sb + body.substring(k, k + 1)
+                }
+                k = k + 1
+            }
+            return sb
+        }
+        i = i + 1
+    }
+    throw "json: key not found: " + key
+}
+
+// isRetryable(e): 5xx and 429 are transient; everything else fails fast.
+isRetryable(String e): Int {
+    if (e.length >= 6) {
+        if (e.substring(0, 6) == "HTTP 5") {
+            return 1
+        }
+    }
+    if (e.length >= 8) {
+        if (e.substring(0, 8) == "HTTP 429") {
+            return 1
+        }
+    }
+    return 0
+}
+
+// LLMClient wraps a Transport with retries + backoff. complete() serializes
+// the message list into a minimal OpenAI-style chat body and returns the
+// assistant content extracted from the response JSON.
+class LLMClient(Transport t, String baseUrl, Int maxRetries) {
+    complete(List<ChatMessage> messages): String {
+        var body = "{\"model\":\"kof-demo\",\"messages\":["
+        var i = 0
+        var n = messages.size()
+        while (i < n) {
+            var msg = messages.get(i)
+            if (i > 0) {
+                body = body + ","
+            }
+            body = body + "{\"role\":\"" + msg.role + "\",\"content\":\""
+            body = body + msg.content + "\"}"
+            i = i + 1
+        }
+        body = body + "]}"
+        var attempt = 0
+        while (attempt <= this.maxRetries) {
+            try {
+                var resp = this.t.send(this.baseUrl, body, "Content-Type: application/json")
+                return extractJsonString(resp, "content")
+            } catch (String e) {
+                if (isRetryable(e) == 0) {
+                    throw e
+                }
+                if (attempt == this.maxRetries) {
+                    throw e
+                }
+                // manual exponential backoff: base 50ms, doubled per attempt
+                var delay = 50
+                var k = 0
+                while (k < attempt) {
+                    delay = delay * 2
+                    k = k + 1
+                }
+                time.sleep(delay)
+                attempt = attempt + 1
+            }
+        }
+        throw "llm: unreachable retry state"
+    }
+}
+
+// ─── demo ──────────────────────────────────────────────────────────────
+
+main() {
+    // Demo 1 (offline): FakeTransport fails twice, then succeeds. The client
+    // must retry and still return the scripted assistant content.
+    var resp = "{\"id\":\"chat-1\",\"choices\":[{\"message\":{\"role\":\"assistant\",\"content\":\"Kof is statically typed.\"}}]}"
+    var fake = new FakeTransport(2, resp)
+    var client = new LLMClient(fake, "https://api.example.com/v1/chat/completions", 3)
+    var msgs = listOf<ChatMessage>()
+    msgs.add(ChatMessage("system", "You are a concise assistant."))
+    msgs.add(ChatMessage("user", "What is Kof?"))
+    var answer = client.complete(msgs)
+    println("fake demo answer: " + answer)
+    println("fake demo calls (2 failures + 1 success): " + fake.calls.toString())
+
+    // Demo 2 (offline): a 4xx client error is not retryable — fails fast.
+    var errT = new ErrorTransport("HTTP 400: invalid request")
+    var c2 = new LLMClient(errT, "https://api.example.com/v1/chat/completions", 3)
+    try {
+        var bad = c2.complete(msgs)
+        println("unexpected: " + bad)
+    } catch (String e) {
+        println("demo 2 failed fast as expected: " + e)
+    }
+
+    // Demo 3 (optional, live): only runs when LLM_API_KEY is set. Without a
+    // key it prints 'skipped' and the lab still completes 100% offline.
+    var apiKey = secrets.get("LLM_API_KEY", "")
+    if (apiKey.length == 0) {
+        println("live demo: skipped (LLM_API_KEY not set)")
+    } else {
+        var live = new LLMClient(new HttpTransport(apiKey), "https://api.example.com/v1/chat/completions", 3)
+        var out3 = live.complete(msgs)
+        println("live demo answer: " + out3)
+    }
+}
