@@ -1,6 +1,6 @@
 # Visão Geral — Treinamento Kof para Engenharia de Dados & IA
 
-> 51 labs, 11 módulos, 8 datasets, 100% em `kof 0.3.222-beta` (`~/.kof/bin/kof`).
+> 51 labs, 11 módulos, 8 datasets, 100% em `kof 0.3.22-beta` (`~/.kof/bin/kof`).
 
 ## Mapa de Módulos
 

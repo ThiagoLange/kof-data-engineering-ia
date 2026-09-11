@@ -1,7 +1,7 @@
 # Template de Lição
 
 > Estrutura canônica para cada lab do treinamento Kof para IA & Dados.
-> Aplicada em todos os 51 labs (11 módulos 00–10) em `kof 0.3.222-beta`.
+> Aplicada em todos os 51 labs (11 módulos 00–10) em `kof 0.3.22-beta`.
 > Cada lab tem variante compacta (<200 linhas) para evitar `LineNumberTable` bug em 0.3.22.
 
 ## Arquivos por lab

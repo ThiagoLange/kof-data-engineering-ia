@@ -1,4 +1,4 @@
-# Guia de Execução — Passo a Passo (51 labs, kof 0.3.222-beta)
+# Guia de Execução — Passo a Passo (51 labs, kof 0.3.22-beta)
 
 > Siga exatamente nesta ordem. Todos os comandos assumem execução na **raiz do repositório** (`kof-data-engineering-ia/`).
 
@@ -7,7 +7,7 @@
 ```bash
 # 1. Ativar toolchain 0.3.22 (instalada em ~/.kof)
 export PATH="$HOME/.kof/bin:$PATH"
-kof version  # deve imprimir: kof 0.3.222-beta
+kof version  # deve imprimir: kof 0.3.22-beta
 kof info     # JVM 21, Targets: jvm, native, js
 
 # 2. Conferir datasets (8 arquivos, novo iris_full.csv 150 linhas)

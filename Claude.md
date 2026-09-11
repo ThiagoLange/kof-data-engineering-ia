@@ -15,7 +15,7 @@ Este repositório contém o material didático, labs executáveis e referências
 
 ## 2. Estrutura Modular e Relação de Exemplos Práticos
 
-Cada lição deve conter: `README.md` (conceito + diagrama), `lab.kof` (código completo comentado) e `exercise.kof` (com asserções `assert`). **Total: 51 labs em 11 módulos (0–10), 100% em `kof 0.3.222-beta`.**
+Cada lição deve conter: `README.md` (conceito + diagrama), `lab.kof` (código completo comentado) e `exercise.kof` (com asserções `assert`). **Total: 51 labs em 11 módulos (0–10), 100% em `kof 0.3.22-beta`.**
 
 ### Módulo 00: Setup & Toolchain
 - **Exemplo 0.1: Verificação da Toolchain Kof** — `kof version/info/check/inspect` + validação de `datasets/` (8 arquivos, `iris_full.csv` 150 linhas).
