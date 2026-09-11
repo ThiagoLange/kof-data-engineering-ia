@@ -1,0 +1,17 @@
+// modulo-08-data/08-cache/lab.kof
+// Feature Store Online com TTL (simula kof.cache).
+// Target: JVM 0.3.2 compact.
+split(String s, String delim): List<String> { var out=listOf<String>(); var start=0; var n=s.length; var i=0; while(i<n){ if(s.charAt(i)==delim.charAt(0)){ out.add(s.substring(start,i)); start=i+1 } i=i+1 } out.add(s.substring(start,n)); return out }
+trim(String s): String { var n=s.length; var start=0; while(start<n){ var c=s.charAt(start); if(c!=32&&c!=9&&c!=10&&c!=13){break} start=start+1 } var end=n; while(end>start){ var c=s.charAt(end-1); if(c!=32&&c!=9&&c!=10&&c!=13){break} end=end-1 } return s.substring(start,end) }
+record CacheEntry(String key, String value, Double expiresAt)
+class Cache(List<CacheEntry> entries, List<Double> nowBox) {
+    curTime(): Double { return nowBox.get(0) }
+    put(String k, String v, Int ttlMs): Int { var exp=curTime() + 1.0 * ttlMs; var i=0; while(i<entries.size()){ if(entries.get(i).key==k){ entries.set(i, CacheEntry(k,v,exp)); return 0 } i=i+1 } entries.add(CacheEntry(k,v,exp)); return 0 }
+    get(String k): String { var cur=curTime(); var i=0; while(i<entries.size()){ var e=entries.get(i); if(e.key==k){ if(e.expiresAt < cur){ throw "cache: expired key "+k } return e.value } i=i+1 } throw "cache: not found "+k }
+    tick(Int ms): Int { var cur=nowBox.get(0); nowBox.set(0, cur + 1.0 * ms); return 0 }
+    size(): Int { return entries.size() }
+}
+makeCache(): Cache { var box=listOf<Double>(); box.add(0.0); return Cache(listOf<CacheEntry>(), box) }
+test "cache put and get" { var c=makeCache(); c.put("k","v",100); assert(c.get("k")=="v","v") }
+test "cache expires" { var c=makeCache(); c.put("k","v",50); c.tick(60); var threw=0; try{ var v=c.get("k") } catch(String e){ threw=1 } assert(threw==1,"expired") }
+test "cache not expired" { var c=makeCache(); c.put("k","v",100); c.tick(50); var v=c.get("k"); assert(v=="v","still valid") }

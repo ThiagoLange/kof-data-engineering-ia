@@ -1,0 +1,318 @@
+// modulo-04-deep/03-mlp/lab.kof
+//
+// Multilayer Perceptron (MLP) for non-linear classification on iris.
+// Architecture: 4-in -> 8 hidden (ReLU) -> 3 out (softmax). Forward pass,
+// prediction via argmax, accuracy loop. Weights are deterministic init
+// (no external RNG). Demonstrates dense layers + activations + softmax.
+//
+// Source: shared/strutils.kof, shared/numberparse.kof
+// Target: JVM (kof run; default target)
+
+// ─── helpers ───────────────────────────────────────────────────────────
+
+split(String s, String delim): List<String> {
+    var out = listOf<String>()
+    if (delim.length == 0) { out.add(s); return out }
+    var start = 0
+    var n = s.length
+    var i = 0
+    while (i < n) { if (s.charAt(i) == delim.charAt(0)) { out.add(s.substring(start, i)); start = i + 1 } i = i + 1 }
+    out.add(s.substring(start, n))
+    return out
+}
+
+trim(String s): String {
+    var n = s.length
+    var start = 0
+    while (start < n) { var c = s.charAt(start); if (c != 32 && c != 9 && c != 10 && c != 13) { break } start = start + 1 }
+    var end = n
+    while (end > start) { var c = s.charAt(end - 1); if (c != 32 && c != 9 && c != 10 && c != 13) { break } end = end - 1 }
+    return s.substring(start, end)
+}
+
+parseFloatStrict(String s): Double {
+    if (s == null) { throw "parseFloat: null input" }
+    var n = s.length
+    if (n == 0) { throw "parseFloat: empty input" }
+    var i = 0
+    var sign = 1.0
+    var c = s.charAt(0)
+    if (c == 45) { sign = -1.0; i = 1 }
+    else if (c == 43) { i = 1 }
+    if (i >= n) { throw "parseFloat: sign only" }
+    var intPart = 0.0
+    var sawDigit = 0
+    while (i < n) { var ch = s.charAt(i); if (ch >= 48 && ch <= 57) { intPart = intPart * 10.0 + ch - 48.0; sawDigit = 1; i = i + 1 } else { break } }
+    var base = sign * intPart
+    var fracAcc = 0.0
+    var div = 1.0
+    var hasDot = 0
+    if (i < n) { if (s.charAt(i) == 46) { hasDot = 1; i = i + 1 } }
+    while (i < n && hasDot == 1) { var ch = s.charAt(i); if (ch >= 48 && ch <= 57) { fracAcc = fracAcc * 10.0 + ch - 48.0; div = div * 10.0; i = i + 1 } else { break } }
+    if (sawDigit == 0 && hasDot == 0) { throw "parseFloat: no digits" }
+    if (i < n) { throw "parseFloat: trailing garbage" }
+    var frac = fracAcc / div
+    var value = base + frac
+    return value
+}
+
+expApprox(Double x): Double {
+    var term = 1.0
+    var sum = 1.0
+    var i = 1
+    while (i < 30) { term = term * x / (1.0 * i); sum = sum + term; i = i + 1 }
+    return sum
+}
+
+// ─── vector ops (pure) ────────────────────────────────────────────────
+
+relu(Double x): Double {
+    if (x > 0.0) { return x }
+    return 0.0
+}
+
+reluVec(List<Double> v): List<Double> {
+    var out = listOf<Double>()
+    var i = 0
+    while (i < v.size()) { var x = v.get(i); if (x > 0.0) { out.add(x) } else { out.add(0.0) } i = i + 1 }
+    return out
+}
+
+sigmoidVec(List<Double> v): List<Double> {
+    var out = listOf<Double>()
+    var i = 0
+    while (i < v.size()) {
+        var x = v.get(i)
+        var s = 1.0 / (1.0 + expApprox(-x))
+        out.add(s)
+        i = i + 1
+    }
+    return out
+}
+
+softmaxVec(List<Double> v): List<Double> {
+    var n = v.size()
+    if (n == 0) { throw "softmax: empty" }
+    var mx = v.get(0)
+    var i = 1
+    while (i < n) { if (v.get(i) > mx) { mx = v.get(i) } i = i + 1 }
+    var exps = listOf<Double>()
+    var sum = 0.0
+    var j = 0
+    while (j < n) {
+        var e = expApprox(v.get(j) - mx)
+        exps.add(e)
+        sum = sum + e
+        j = j + 1
+    }
+    var out = listOf<Double>()
+    var k = 0
+    while (k < n) { out.add(exps.get(k) / sum); k = k + 1 }
+    return out
+}
+
+vecAdd(List<Double> a, List<Double> b): List<Double> {
+    if (a.size() != b.size()) { throw "vecAdd size mismatch" }
+    var out = listOf<Double>()
+    var i = 0
+    while (i < a.size()) { out.add(a.get(i) + b.get(i)); i = i + 1 }
+    return out
+}
+
+// matVecMul: matrix (rows x cols) row-major List<Double> * vector (cols) -> vector (rows)
+matVecMul(List<Double> mat, Int rows, Int cols, List<Double> vec): List<Double> {
+    if (vec.size() != cols) { throw "matVecMul dim mismatch" }
+    var out = listOf<Double>()
+    var i = 0
+    while (i < rows) {
+        var acc = 0.0
+        var j = 0
+        while (j < cols) {
+            var w = mat.get(i * cols + j)
+            var x = vec.get(j)
+            acc = acc + w * x
+            j = j + 1
+        }
+        out.add(acc)
+        i = i + 1
+    }
+    return out
+}
+
+argmax(List<Double> v): Int {
+    if (v.size() == 0) { throw "argmax: empty" }
+    var best = 0
+    var bestV = v.get(0)
+    var i = 1
+    while (i < v.size()) { if (v.get(i) > bestV) { best = i; bestV = v.get(i) } i = i + 1 }
+    return best
+}
+
+// ─── MLP ───────────────────────────────────────────────────────────────
+
+class MLP(List<Double> w1, List<Double> b1, List<Double> w2, List<Double> b2, Int nIn, Int nHidden, Int nOut) {
+    // Forward: x (nIn) -> hidden (nHidden, ReLU) -> logits (nOut) -> softmax (nOut)
+    forward(List<Double> x): List<Double> {
+        var h = matVecMul(w1, nHidden, nIn, x)
+        h = vecAdd(h, b1)
+        h = reluVec(h)
+        var logits = matVecMul(w2, nOut, nHidden, h)
+        logits = vecAdd(logits, b2)
+        return softmaxVec(logits)
+    }
+
+    // logits without softmax (for loss)
+    logits(List<Double> x): List<Double> {
+        var h = matVecMul(w1, nHidden, nIn, x)
+        h = vecAdd(h, b1)
+        h = reluVec(h)
+        var lg = matVecMul(w2, nOut, nHidden, h)
+        lg = vecAdd(lg, b2)
+        return lg
+    }
+
+    predict(List<Double> x): Int {
+        var probs = forward(x)
+        return argmax(probs)
+    }
+}
+
+// deterministic weight init: w = ((i*cols+j)*0.07 % 1.0) - 0.5
+initMatrix(Int rows, Int cols): List<Double> {
+    var out = listOf<Double>()
+    var i = 0
+    while (i < rows) {
+        var j = 0
+        while (j < cols) {
+            var v = (1.0 * (i * cols + j + 1)) * 0.07
+            // fractional part: subtract floor
+            var k = 0
+            var iv = 0
+            while (v >= 1.0) { v = v - 1.0 }
+            // shift to [-0.5, 0.5)
+            v = v - 0.5
+            out.add(v)
+            j = j + 1
+        }
+        i = i + 1
+    }
+    return out
+}
+
+initBias(Int n): List<Double> {
+    var out = listOf<Double>()
+    var i = 0
+    while (i < n) { out.add(0.0); i = i + 1 }
+    return out
+}
+
+makeMLP(Int nIn, Int nHidden, Int nOut): MLP {
+    var w1 = initMatrix(nHidden, nIn)
+    var b1 = initBias(nHidden)
+    var w2 = initMatrix(nOut, nHidden)
+    var b2 = initBias(nOut)
+    return MLP(w1, b1, w2, b2, nIn, nHidden, nOut)
+}
+
+// ─── dataset ───────────────────────────────────────────────────────────
+
+record IrisSample(List<Double> features, Int label, String species)
+
+labelForSpecies(String s): Int {
+    if (s == "setosa") { return 0 }
+    if (s == "versicolor") { return 1 }
+    if (s == "virginica") { return 2 }
+    throw "unknown species " + s
+}
+
+loadIris(String path): List<IrisSample> {
+    var raw = File(path).readText()
+    if (raw == null) { throw "mlp: cannot read " + path }
+    var lines = split(raw, "\n")
+    var out = listOf<IrisSample>()
+    var i = 1
+    while (i < lines.size()) {
+        var line = trim(lines.get(i))
+        if (line.length > 0) {
+            var c = split(line, ",")
+            var feats = listOf<Double>()
+            feats.add(parseFloatStrict(trim(c.get(0))))
+            feats.add(parseFloatStrict(trim(c.get(1))))
+            feats.add(parseFloatStrict(trim(c.get(2))))
+            feats.add(parseFloatStrict(trim(c.get(3))))
+            var sp = trim(c.get(4))
+            var lab = labelForSpecies(sp)
+            out.add(IrisSample(feats, lab, sp))
+        }
+        i = i + 1
+    }
+    return out
+}
+
+// ─── demo ──────────────────────────────────────────────────────────────
+
+// ─── tests ─────────────────────────────────────────────────────────
+
+test "mlp forward probs sum to 1" {
+    var mlp = makeMLP(4,8,3)
+    var data = loadIris("datasets/iris.csv")
+    var probs = mlp.forward(data.get(0).features)
+    assert(probs.size() == 3, "3 probs")
+    var sum = probs.get(0) + probs.get(1) + probs.get(2)
+    var d = sum - 1.0
+    if (d < 0.0) { d = -d }
+    assert(d < 0.0001, "sum 1.0 got " + sum.toString())
+}
+
+test "softmax of uniform logits ~0.33" {
+    var v = listOf<Double>()
+    v.add(0.0); v.add(0.0); v.add(0.0)
+    var s = softmaxVec(v)
+    var d = s.get(0) - 0.3333
+    if (d < 0.0) { d = -d }
+    assert(d < 0.01, "uniform softmax 0.33 got " + s.get(0).toString())
+}
+
+test "relu vec" {
+    var v = listOf<Double>()
+    v.add(-1.0); v.add(2.0); v.add(0.0)
+    var r = reluVec(v)
+    assert(r.get(0) == 0.0, "relu -1 -> 0")
+    assert(r.get(1) == 2.0, "relu 2 -> 2")
+    assert(r.get(2) == 0.0, "relu 0 -> 0")
+}
+
+test "argmax" {
+    var v = listOf<Double>()
+    v.add(0.1); v.add(0.9); v.add(0.2)
+    assert(argmax(v) == 1, "argmax 1")
+}
+
+test "matVecMul identity" {
+    var mat = listOf<Double>()
+    mat.add(1.0); mat.add(0.0)
+    mat.add(0.0); mat.add(1.0)
+    var vec = listOf<Double>()
+    vec.add(3.0); vec.add(4.0)
+    var out = matVecMul(mat, 2, 2, vec)
+    assert(out.get(0) == 3.0, "id 3.0")
+    assert(out.get(1) == 4.0, "id 4.0")
+}
+
+test "mlp load 15 samples" {
+    var data = loadIris("datasets/iris.csv")
+    assert(data.size() == 15, "15 samples")
+    assert(data.get(0).label == 0, "first setosa 0")
+    assert(data.get(6).label == 1, "versicolor 1")
+}
+
+test "predict returns valid label" {
+    var mlp = makeMLP(4,8,3)
+    var data = loadIris("datasets/iris.csv")
+    var i = 0
+    while (i < data.size()) {
+        var p = mlp.predict(data.get(i).features)
+        assert(p >= 0 && p <= 2, "label in 0..2 got " + p.toString())
+        i = i + 1
+    }
+}

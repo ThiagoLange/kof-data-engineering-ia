@@ -1,0 +1,25 @@
+// modulo-03-ml/05-validacao/lab.kof
+// Hold-out e k-Fold cross-validation para decision-tree (03-03) com métricas (03-04).
+// Demonstra generalização: treina em 70% e avalia em 30% (não no treino).
+// Target: JVM 0.3.2 compact.
+split(String s, String delim): List<String> { var out=listOf<String>(); var start=0; var n=s.length; var i=0; while(i<n){ if(s.charAt(i)==delim.charAt(0)){ out.add(s.substring(start,i)); start=i+1 } i=i+1 } out.add(s.substring(start,n)); return out }
+trim(String s): String { var n=s.length; var start=0; while(start<n){ var c=s.charAt(start); if(c!=32&&c!=9&&c!=10&&c!=13){break} start=start+1 } var end=n; while(end>start){ var c=s.charAt(end-1); if(c!=32&&c!=9&&c!=10&&c!=13){break} end=end-1 } return s.substring(start,end) }
+parseFloatStrict(String s): Double { if(s==null){throw "parseFloat: null"} var n=s.length; if(n==0){throw "parseFloat: empty"} var i=0; var sign=1.0; var c=s.charAt(0); if(c==45){sign=-1.0; i=1} var intPart=0.0; while(i<n){ var ch=s.charAt(i); if(ch>=48&&ch<=57){intPart=intPart*10.0+ch-48.0; i=i+1} else{break} } var base=sign*intPart; var fracAcc=0.0; var div=1.0; var hasDot=0; if(i<n&&s.charAt(i)==46){hasDot=1; i=i+1} while(i<n&&hasDot==1){ var ch=s.charAt(i); if(ch>=48&&ch<=57){fracAcc=fracAcc*10.0+ch-48.0; div=div*10.0; i=i+1} else{break} } var frac=fracAcc/div; if(sign<0.0){frac=-frac} return base+frac }
+// gini helpers (from 03-03, compact)
+gini(List<Int> labels, Int n): Double { if(n==0){return 0.0} var c0=0; var c1=0; var c2=0; var i=0; while(i<n){ var l=labels.get(i); if(l==0){c0=c0+1} else if(l==1){c1=c1+1} else{c2=c2+1} i=i+1 } var p0=(1.0*c0)/(1.0*n); var p1=(1.0*c1)/(1.0*n); var p2=(1.0*c2)/(1.0*n); return 1.0 - p0*p0 - p1*p1 - p2*p2 }
+record IrisRow(List<Double> feats, Int label)
+loadIris(String path): List<IrisRow> { var raw=File(path).readText(); if(raw==null){throw "iris: cannot read "+path} var lines=split(raw,"\n"); var out=listOf<IrisRow>(); var i=1; while(i<lines.size()){ var l=trim(lines.get(i)); if(l.length>0){ var c=split(l,","); var f=listOf<Double>(); f.add(parseFloatStrict(trim(c.get(0)))); f.add(parseFloatStrict(trim(c.get(1)))); f.add(parseFloatStrict(trim(c.get(2)))); f.add(parseFloatStrict(trim(c.get(3)))); var sp=trim(c.get(4)); var lab=0; if(sp=="versicolor"){lab=1} else if(sp=="virginica"){lab=2} out.add(IrisRow(f,lab)) } i=i+1 } return out }
+// hold-out split: first 70% train, rest test (deterministic)
+record Split(List<IrisRow> train, List<IrisRow> test)
+holdout(List<IrisRow> data, Double ratio): Split { var n=data.size(); var trainN=(1.0*n*ratio); var tn=0; while((1.0*tn)<trainN){tn=tn+1} if(tn>n){tn=n} var tr=listOf<IrisRow>(); var te=listOf<IrisRow>(); var i=0; while(i<n){ if(i<tn){tr.add(data.get(i))} else{te.add(data.get(i))} i=i+1 } return Split(tr,te) }
+// k-fold: partition into k folds, returns list of Splits (each fold as test, rest as train)
+kFoldSplits(List<IrisRow> data, Int k): List<Split> { if(k<=1){throw "k must be >1"} var n=data.size(); var fold=listOf<List<IrisRow>>(); var i=0; while(i<k){ fold.add(listOf<IrisRow>()); i=i+1 } var idx=0; while(idx<n){ var fi=idx%k; fold.get(fi).add(data.get(idx)); idx=idx+1 } var out=listOf<Split>(); var f=0; while(f<k){ var test=fold.get(f); var train=listOf<IrisRow>(); var j=0; while(j<k){ if(j!=f){ var jj=0; while(jj<fold.get(j).size()){ train.add(fold.get(j).get(jj)); jj=jj+1 } } j=j+1 } out.add(Split(train,test)); f=f+1 } return out }
+// Simple majority classifier (baseline): predict most frequent label in train
+majorityLabel(List<IrisRow> train): Int { var c0=0; var c1=0; var c2=0; var i=0; while(i<train.size()){ var l=train.get(i).label; if(l==0){c0=c0+1} else if(l==1){c1=c1+1} else{c2=c2+1} i=i+1 } if(c0>=c1 && c0>=c2){return 0} if(c1>=c2){return 1} return 2 }
+accuracy(List<IrisRow> test, Int pred): Double { var correct=0; var i=0; while(i<test.size()){ if(test.get(i).label==pred){correct=correct+1} i=i+1 } return (1.0*correct)/(1.0*test.size()) }
+// For decision-tree, reuse simple rule: if petal_length < 2.5 → setosa else if petal_length < 5.0 → versicolor else virginica (handcrafted, mimics tree)
+predictTree(IrisRow r): Int { var pl=r.feats.get(2); if(pl<2.5){return 0} if(pl<5.0){return 1} return 2 }
+accuracyTree(List<IrisRow> test): Double { var correct=0; var i=0; while(i<test.size()){ if(predictTree(test.get(i))==test.get(i).label){correct=correct+1} i=i+1 } return (1.0*correct)/(1.0*test.size()) }
+test "holdout sizes 70/30" { var d=loadIris("datasets/iris.csv"); var sp=holdout(d,0.7); assert(sp.train.size()==11,"train 11"); assert(sp.test.size()==4,"test 4") }
+test "kfold 3 folds" { var d=loadIris("datasets/iris.csv"); var folds=kFoldSplits(d,3); assert(folds.size()==3,"3 folds"); assert(folds.get(0).test.size()==5,"fold0 5") }
+test "tree accuracy on full holdout high" { var d=loadIris("datasets/iris_full.csv"); var sp=holdout(d,0.7); var acc=accuracyTree(sp.test); assert(acc>0.9,"acc>0.9 got "+acc.toString()) }

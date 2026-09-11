@@ -1,0 +1,332 @@
+// modulo-04-deep/01-tensor/lab.kof
+//
+// 2D Tensor over List<Double> with row-major indexing (i*cols+j).
+// Immutable operations (transpose/matmul/add/scale/reshape) return new
+// tensors; set(i,j,v) mutates the buffer in place (List.set on a final
+// field reference is the only legal mutation — class fields are final).
+//
+// Source: shared/strutils.kof, shared/numberparse.kof
+// Target: JVM (kof run; default target)
+
+// ─── helpers (inline copies of shared/*.kof) ───────────────────────────
+
+split(String s, String delim): List<String> {
+    var out = listOf<String>()
+    var start = 0
+    var n = s.length
+    var i = 0
+    while (i < n) {
+        if (s.charAt(i) == delim.charAt(0)) {
+            out.add(s.substring(start, i))
+            start = i + 1
+        }
+        i = i + 1
+    }
+    out.add(s.substring(start, n))
+    return out
+}
+
+trim(String s): String {
+    var n = s.length
+    var start = 0
+    while (start < n) {
+        var c = s.charAt(start)
+        if (c != 32 && c != 9 && c != 10 && c != 13) { break }
+        start = start + 1
+    }
+    var end = n
+    while (end > start) {
+        var c = s.charAt(end - 1)
+        if (c != 32 && c != 9 && c != 10 && c != 13) { break }
+        end = end - 1
+    }
+    return s.substring(start, end)
+}
+
+parseFloatStrict(String s): Double {
+    if (s == null) { throw "parseFloat: null input" }
+    var n = s.length
+    if (n == 0) { throw "parseFloat: empty input" }
+    var i = 0
+    var sign = 1.0
+    var c = s.charAt(0)
+    if (c == 45) { sign = -1.0; i = 1 }
+    else if (c == 43) { i = 1 }
+    if (i >= n) { throw "parseFloat: sign only" }
+    var intPart = 0.0
+    var sawDigit = 0
+    while (i < n) {
+        var ch = s.charAt(i)
+        if (ch >= 48 && ch <= 57) {
+            intPart = intPart * 10.0 + ch - 48.0
+            sawDigit = 1
+            i = i + 1
+        } else { break }
+    }
+    var base = sign * intPart
+    var fracAcc = 0.0
+    var div = 1.0
+    var hasDot = 0
+    if (i < n) {
+        if (s.charAt(i) == 46) {
+            hasDot = 1
+            i = i + 1
+        }
+    }
+    while (i < n && hasDot == 1) {
+        var ch = s.charAt(i)
+        if (ch >= 48 && ch <= 57) {
+            fracAcc = fracAcc * 10.0 + ch - 48.0
+            div = div * 10.0
+            i = i + 1
+        } else { break }
+    }
+    if (sawDigit == 0 && hasDot == 0) { throw "parseFloat: no digits" }
+    if (i < n) { throw "parseFloat: trailing garbage" }
+    var frac = fracAcc / div
+    var value = base + frac
+    return value
+}
+
+// ─── Tensor ────────────────────────────────────────────────────────────
+
+class Tensor(Int rows, Int cols, List<Double> data) {
+    nrows(): Int { return rows }
+    ncols(): Int { return cols }
+    shape(): String { return rows.toString() + "x" + cols.toString() }
+
+    get(Int i, Int j): Double {
+        if (i < 0 || i >= rows || j < 0 || j >= cols) {
+            throw "tensor: index out of bounds (" + i.toString() + "," + j.toString() + ") for " + shape()
+        }
+        return data.get(i * cols + j)
+    }
+
+    // set mutates the underlying buffer (List is mutable even though the
+    // class field reference is final).
+    set(Int i, Int j, Double v): Int {
+        if (i < 0 || i >= rows || j < 0 || j >= cols) {
+            throw "tensor: index out of bounds (" + i.toString() + "," + j.toString() + ") for " + shape()
+        }
+        data.set(i * cols + j, v)
+        return 0
+    }
+
+    toList(): List<Double> { return data }
+
+    transpose(): Tensor {
+        var out = listOf<Double>()
+        var i = 0
+        while (i < cols) {
+            var j = 0
+            while (j < rows) {
+                out.add(data.get(j * cols + i))
+                j = j + 1
+            }
+            i = i + 1
+        }
+        return Tensor(cols, rows, out)
+    }
+
+    // matmul: (rows x cols) * (o.rows x o.cols) -> (rows x o.cols)
+    matmul(Tensor o): Tensor {
+        if (cols != o.nrows()) {
+            throw "tensor: matmul shape mismatch " + shape() + " * " + o.shape()
+        }
+        var out = listOf<Double>()
+        var i = 0
+        while (i < rows) {
+            var j = 0
+            while (j < o.ncols()) {
+                var acc = 0.0
+                var k = 0
+                while (k < cols) {
+                    var a = data.get(i * cols + k)
+                    var b = o.get(k, j)
+                    acc = acc + a * b
+                    k = k + 1
+                }
+                out.add(acc)
+                j = j + 1
+            }
+            i = i + 1
+        }
+        return Tensor(rows, o.ncols(), out)
+    }
+
+    // add: elementwise, same shape required.
+    add(Tensor o): Tensor {
+        if (rows != o.nrows() || cols != o.ncols()) {
+            throw "tensor: add shape mismatch " + shape() + " + " + o.shape()
+        }
+        var out = listOf<Double>()
+        var n = data.size()
+        var i = 0
+        while (i < n) {
+            out.add(data.get(i) + o.toList().get(i))
+            i = i + 1
+        }
+        return Tensor(rows, cols, out)
+    }
+
+    // addScalar: broadcast a scalar over every element.
+    addScalar(Double s): Tensor {
+        var out = listOf<Double>()
+        var n = data.size()
+        var i = 0
+        while (i < n) {
+            out.add(data.get(i) + s)
+            i = i + 1
+        }
+        return Tensor(rows, cols, out)
+    }
+
+    scale(Double s): Tensor {
+        var out = listOf<Double>()
+        var n = data.size()
+        var i = 0
+        while (i < n) {
+            out.add(data.get(i) * s)
+            i = i + 1
+        }
+        return Tensor(rows, cols, out)
+    }
+
+    // reshape: row-major reinterpretation; requires the same total size.
+    reshape(Int r, Int c): Tensor {
+        if (r * c != rows * cols) {
+            throw "tensor: cannot reshape " + shape() + " to " + r.toString() + "x" + c.toString()
+        }
+        return Tensor(r, c, data)
+    }
+}
+
+zeros(Int r, Int c): Tensor {
+    var out = listOf<Double>()
+    var n = r * c
+    var i = 0
+    while (i < n) {
+        out.add(0.0)
+        i = i + 1
+    }
+    return Tensor(r, c, out)
+}
+
+identity(Int n): Tensor {
+    var t = zeros(n, n)
+    var i = 0
+    while (i < n) {
+        t.set(i, i, 1.0)
+        i = i + 1
+    }
+    return t
+}
+
+// ─── dataset loading ───────────────────────────────────────────────────
+
+// loadIrisFeatures: first 4 numeric columns of iris.csv -> (n x 4) Tensor.
+loadIrisFeatures(String path): Tensor {
+    var raw = File(path).readText()
+    if (raw == null) { throw "tensor: cannot read " + path }
+    var lines = split(raw, "\n")
+    var data = listOf<Double>()
+    var nrows = 0
+    var n = lines.size()
+    var i = 1
+    while (i < n) {
+        var line = trim(lines.get(i))
+        if (line.length > 0) {
+            var cols = split(line, ",")
+            var j = 0
+            while (j < 4) {
+                data.add(parseFloatStrict(trim(cols.get(j))))
+                j = j + 1
+            }
+            nrows = nrows + 1
+        }
+        i = i + 1
+    }
+    return Tensor(nrows, 4, data)
+}
+
+printTensor(Tensor t): Int {
+    var i = 0
+    while (i < t.nrows()) {
+        var row = ""
+        var j = 0
+        while (j < t.ncols()) {
+            if (j > 0) { row = row + " " }
+            row = row + t.get(i, j).toString()
+            j = j + 1
+        }
+        println(row)
+        i = i + 1
+    }
+    return 0
+}
+
+// ─── demo ──────────────────────────────────────────────────────────────
+
+// ─── tests ─────────────────────────────────────────────────────────
+
+test "tensor shape after load" {
+    var x = loadIrisFeatures("datasets/iris.csv")
+    assert(x.nrows() == 15, "rows 15")
+    assert(x.ncols() == 4, "cols 4")
+}
+
+test "transpose shape" {
+    var x = loadIrisFeatures("datasets/iris.csv")
+    var xt = x.transpose()
+    assert(xt.nrows() == 4, "xt rows 4")
+    assert(xt.ncols() == 15, "xt cols 15")
+}
+
+test "gram matrix 4x4" {
+    var x = loadIrisFeatures("datasets/iris.csv")
+    var g = x.transpose().matmul(x)
+    assert(g.nrows() == 4, "g rows 4")
+    assert(g.ncols() == 4, "g cols 4")
+    // symmetry: g[0,1] == g[1,0]
+    var d = g.get(0,1) - g.get(1,0)
+    if (d < 0.0) { d = -d }
+    assert(d < 0.0001, "symmetry")
+}
+
+test "matmul by identity is identity" {
+    var x = loadIrisFeatures("datasets/iris.csv")
+    var id = identity(4)
+    var y = x.matmul(id)
+    var d = y.get(0,0) - x.get(0,0)
+    if (d < 0.0) { d = -d }
+    assert(d < 0.0001, "identity matmul")
+}
+
+test "addScalar and scale" {
+    var t = identity(2)
+    var s = t.addScalar(10.0).scale(0.5)
+    var d1 = s.get(0,0) - 5.5
+    if (d1 < 0.0) { d1 = -d1 }
+    assert(d1 < 0.0001, "5.5 got " + s.get(0,0).toString())
+    var d2 = s.get(0,1) - 5.0
+    if (d2 < 0.0) { d2 = -d2 }
+    assert(d2 < 0.0001, "5.0 got " + s.get(0,1).toString())
+}
+
+test "reshape preserves data" {
+    var t = zeros(2,3)
+    t.set(0,1, 7.0)
+    var r = t.reshape(3,2)
+    assert(r.nrows() == 3, "reshape rows")
+    assert(r.ncols() == 2, "reshape cols")
+    // row-major: original [0,1] == index 1 maps to reshaped [0,1] or [?] — check raw list unchanged
+    assert(r.toList().get(1) == 7.0, "data preserved")
+}
+
+test "zeros and identity values" {
+    var z = zeros(2,2)
+    assert(z.get(0,0) == 0.0, "zero")
+    var id = identity(3)
+    assert(id.get(1,1) == 1.0, "identity diag")
+    assert(id.get(0,1) == 0.0, "identity off-diag")
+}

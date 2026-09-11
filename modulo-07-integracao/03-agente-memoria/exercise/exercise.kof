@@ -1,0 +1,37 @@
+// modulo-07-integracao/03-agente-memoria/lab.kof
+// Agente com memória: ReAct (06-02) + sandbox (06-03) + Conversation (06-04).
+// Demonstra loop Thought→Action→Observation com buffer conversacional e sumarização.
+// Target: JVM 0.3.2 compact.
+split(String s, String delim): List<String> { var out=listOf<String>(); var start=0; var n=s.length; var i=0; while(i<n){ if(s.charAt(i)==delim.charAt(0)){ out.add(s.substring(start,i)); start=i+1 } i=i+1 } out.add(s.substring(start,n)); return out }
+trim(String s): String { var n=s.length; var start=0; while(start<n){ var c=s.charAt(start); if(c!=32&&c!=9&&c!=10&&c!=13){break} start=start+1 } var end=n; while(end>start){ var c=s.charAt(end-1); if(c!=32&&c!=9&&c!=10&&c!=13){break} end=end-1 } return s.substring(start,end) }
+indexOf(String s, String needle): Int { if(needle.length==0){return 0} var n=s.length; var m=needle.length; if(m>n){return -1} var limit=n-m; var i=0; while(i<=limit){ var match=1; var j=0; while(j<m){ if(s.charAt(i+j)!=needle.charAt(j)){match=0; j=m} else{j=j+1} } if(match==1){return i} i=i+1 } return -1 }
+wordSplit(String t): List<String> { var out=listOf<String>(); var raw=split(t," "); var i=0; while(i<raw.size()){ var w=trim(raw.get(i)); if(w.length>0){out.add(w)} i=i+1 } return out }
+countTokens(String t): Int { return wordSplit(t).size() }
+record ChatMessage(String role, String content)
+record Call(String tool, String argsJson)
+record Result(Int ok, String output, String error)
+record AgentState(String answer, Int steps, Int summarized)
+// minimal tools: calculator only for demo
+jsonFieldString(String body, String key): String { var keyPat="\""+key+"\""; var idx=indexOf(body,keyPat); if(idx==-1){throw "key not found: "+key} var pos=idx+keyPat.length; while(pos<body.length){ var ch=body.charAt(pos); if(ch==32||ch==9||ch==10||ch==13){pos=pos+1} else if(ch==58){pos=pos+1} else{break} } while(pos<body.length){ var ch2=body.charAt(pos); if(ch2==32||ch2==9||ch2==10||ch2==13){pos=pos+1} else{break} } if(pos>=body.length||body.charAt(pos)!=34){throw "expected quoted string for "+key} pos=pos+1; var sb=""; var k=pos; while(k<body.length){ var c=body.charAt(k); if(c==34){return sb} else{sb=sb+body.substring(k,k+1)} k=k+1 } throw "unterminated" }
+extractJsonNumber(String body, String key): String { var keyPat="\""+key+"\""; var idx=indexOf(body,keyPat); if(idx==-1){throw "key not found: "+key} var pos=idx+keyPat.length; while(pos<body.length){ var ch=body.charAt(pos); if(ch==32||ch==9||ch==10||ch==13){pos=pos+1} else if(ch==58){pos=pos+1} else{break} } while(pos<body.length){ var ch2=body.charAt(pos); if(ch2==32||ch2==9||ch2==10||ch2==13){pos=pos+1} else{break} } var start=pos; var end=start; while(end<body.length){ var cc=body.charAt(end); if((cc>=48&&cc<=57)||cc==46||cc==45){end=end+1} else{break} } return trim(body.substring(start,end)) }
+parseFloatStrict(String s): Double { if(s==null){throw "parseFloat: null"} var n=s.length; if(n==0){throw "parseFloat: empty"} var i=0; var sign=1.0; var c=s.charAt(0); if(c==45){sign=-1.0; i=1} var intPart=0.0; while(i<n){ var ch=s.charAt(i); if(ch>=48&&ch<=57){intPart=intPart*10.0+ch-48.0; i=i+1} else{break} } var base=sign*intPart; var fracAcc=0.0; var div=1.0; var hasDot=0; if(i<n&&s.charAt(i)==46){hasDot=1; i=i+1} while(i<n&&hasDot==1){ var ch=s.charAt(i); if(ch>=48&&ch<=57){fracAcc=fracAcc*10.0+ch-48.0; div=div*10.0; i=i+1} else{break} } var frac=fracAcc/div; if(sign<0.0){frac=-frac} return base+frac }
+calculator(String argsJson): String { var rawA=extractJsonNumber(argsJson,"a"); var rawB=extractJsonNumber(argsJson,"b"); var op=jsonFieldString(argsJson,"op"); var a=parseFloatStrict(rawA); var b=parseFloatStrict(rawB); var res=0.0; if(op=="+"){res=a+b} else if(op=="*"){res=a*b} else{throw "unknown op "+op} return res.toString() }
+dispatch(Call call): Result { try{ var out=""; if(call.tool=="calculator"){out=calculator(call.argsJson)} else{throw "unknown tool "+call.tool} return Result(1,out,"") } catch(String e){ return Result(0,"",e) } }
+// Conversation with summarization (06-04 simplified)
+class Conversation(List<ChatMessage> msgs, Int maxTokens) {
+    totalTokens(): Int { var t=0; var i=0; while(i<msgs.size()){ t=t+countTokens(msgs.get(i).content); i=i+1 } return t }
+    add(String role, String content): Int { msgs.add(ChatMessage(role,content)); return msgs.size() }
+    needs(): Int { if(totalTokens()>maxTokens){return 1} return 0 }
+    ctx(): String { var sb=""; var i=0; while(i<msgs.size()){ sb=sb+msgs.get(i).role+": "+msgs.get(i).content+"\n"; i=i+1 } return sb }
+}
+summarize(Conversation c, Int keepLast): Conversation { var msgs=c.msgs; if(msgs.size()<=keepLast+1){return c} if(c.totalTokens()<=c.maxTokens){return c} var midEnd=msgs.size()-keepLast; var summary="Summary of "+(midEnd-1).toString()+" earlier messages"; var nm=listOf<ChatMessage>(); nm.add(msgs.get(0)); nm.add(ChatMessage("system",summary)); var i=midEnd; while(i<msgs.size()){ nm.add(msgs.get(i)); i=i+1 } return Conversation(nm,c.maxTokens) }
+makeConv(String sys, Int max): Conversation { var m=listOf<ChatMessage>(); m.add(ChatMessage("system",sys)); return Conversation(m,max) }
+// FakeLLM scripted ReAct turns
+class FakeLLM(List<String> script, List<Int> pos) { next(): String { var p=pos.get(0); if(p>=script.size()){return "Final Answer: no more turns"} var s=script.get(p); pos.set(0,p+1); return s } }
+parseAction(String turn): Call { var lines=split(turn,"\n"); var i=0; while(i<lines.size()){ var l=trim(lines.get(i)); if(indexOf(l,"Action:")==0){ var act=trim(l.substring(7,l.length)); var inp="{}"; if(i+1<lines.size() && indexOf(trim(lines.get(i+1)),"Action Input:")==0){ inp=trim(trim(lines.get(i+1)).substring(13,trim(lines.get(i+1)).length)) } return Call(act,inp) } i=i+1 } throw "no Action found" }
+isFinal(String turn): Int { if(indexOf(turn,"Final Answer:")==0){return 1} return 0 }
+extractFinal(String turn): String { if(indexOf(turn,"Final Answer:")==0){return trim(turn.substring(13,turn.length))} return turn }
+// Agent loop with memory
+runAgent(String question, Conversation conv, FakeLLM llm, Int maxIter): AgentState { conv.add("user",question); var steps=0; var summarized=0; while(steps<maxIter){ if(conv.needs()==1){ conv=summarize(conv,2); summarized=summarized+1 } var ctx=conv.ctx(); var turn=llm.next(); conv.add("assistant",turn); if(isFinal(turn)==1){ var ans=extractFinal(turn); return AgentState(ans, steps+1, summarized) } var call=parseAction(turn); var res=dispatch(call); var obs="Observation: "+res.output; if(res.ok==0){obs="Observation: error: "+res.error} conv.add("system",obs); steps=steps+1 } return AgentState("max iter reached", maxIter, summarized) }
+test "agent answers 12*8" { var conv=makeConv("sys",40); var s=listOf<String>(); var p=listOf<Int>(); p.add(0); s.add("Thought: x\nAction: calculator\nAction Input: {\"a\": 12.0, \"b\": 8.0, \"op\": \"*\"}"); s.add("Final Answer: 96"); var llm=FakeLLM(s,p); var st=runAgent("q",conv,llm,5); assert(st.answer.contains("96"),"96") }
+test "conversation summarization" { var c=makeConv("sys",10); c.add("user","hello world foo bar baz extra words here"); c.add("assistant","reply with many words here to overflow the limit"); c.add("user","another long message that should cause overflow"); assert(c.needs()==1,"needs"); var c2=summarize(c,1); assert(c2.totalTokens() < c.totalTokens(),"tokens reduced") }

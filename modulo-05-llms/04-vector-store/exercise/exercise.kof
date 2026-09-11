@@ -36,3 +36,12 @@ main() {
     var q2="vector embeddings similarity search"; var hits3=reloaded.search(q2,2); println("query \""+q2+"\" top-2:"); var k=0; while(k<hits3.size()){ println("  "+hits3.get(k).id+": "+hits3.get(k).text.substring(0,50)); k=k+1 }
     File(ckPath).delete(); println("checkpoint deleted")
 }
+
+
+test "fakeEmbed deterministic and normalized" { var e1=fakeEmbed("hello world",4); var e2=fakeEmbed("hello world",4); assert(e1.size()==4,"dim 4"); var i=0; while(i<4){ var d=e1.get(i)-e2.get(i); if(d<0.0){d=-d} assert(d<0.0001,"deterministic"); i=i+1 } var n=norm(e1); var d1=n-1.0; if(d1<0.0){d1=-d1} assert(d1<0.0001,"normalized") }
+test "store add and size" { var st=makeStore(4); assert(st.size()==0,"empty"); st.add("d1","hello"); assert(st.size()==1,"1"); st.add("d2","world"); assert(st.size()==2,"2") }
+test "search returns valid entry" { var st=makeStore(4); st.add("a","Kof language"); st.add("b","Data pipeline"); var hits=st.search("Kof",1); assert(hits.size()==1,"1") }
+test "search topK exact hit" { var st=makeStore(4); st.add("x","alpha beta gamma"); var hits=st.search("alpha beta gamma",1); assert(hits.get(0).id=="x","x") }
+test "persist and reload roundtrip" { var st=makeStore(4); st.add("d1","hello world"); st.add("d2","foo bar"); var path="modulo-05-llms/04-vector-store/test_store.jsonl"; var n=st.persist(path); assert(n==2,"2"); var re=loadStore(path,4); assert(re.size()==2,"2"); var hits=re.search("hello",1); assert(hits.size()==1,"1"); File(path).delete() }
+test "k larger than size clamps" { var st=makeStore(4); st.add("a","one"); var hits=st.search("one",10); assert(hits.size()==1,"1") }
+test "loadDocsJsonl 5 docs" { var docs=loadDocsJsonl("datasets/docs.jsonl"); assert(docs.size()==5,"5") }

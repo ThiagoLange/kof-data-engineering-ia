@@ -1,0 +1,6 @@
+// modulo-09-portabilidade/01-native/lab.kof
+// Portabilidade Native/JS: demonstra kof.log universal e kof build gates.
+// Target: JVM (log OK), Native (CONC001 etc.) e JS (CONC003) documentados.
+// Compact.
+test "log does not throw" { log.info("test log"); assert(1==1,"log ok") }
+test "file roundtrip" { var p="modulo-09-portabilidade/01-native/test_tmp.txt"; File(p).writeText("hello"); var b=File(p).readText(); assert(b=="hello","hello"); File(p).delete() }

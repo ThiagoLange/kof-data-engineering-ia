@@ -1,13 +1,13 @@
 # Visão Geral — Treinamento Kof para Engenharia de Dados & IA
 
-> 51 labs, 11 módulos, 8 datasets, 100% em `kof 0.3.2-beta` (`~/.kof/bin/kof`).
+> 51 labs, 11 módulos, 8 datasets, 100% em `kof 0.3.222-beta` (`~/.kof/bin/kof`).
 
 ## Mapa de Módulos
 
 | Módulo | Labs | Foco | Datasets |
 |--------|------|------|----------|
 | 00 Setup | 1 | `kof version/info/check/inspect` + 8 datasets | `iris_full.csv` 150 |
-| 01 Fundamentos | 6 | CSV, JSONL, `spawn/await` (0.3.2 fix #31), binário RLE, `kof.log`, PII | `employees.csv` |
+| 01 Fundamentos | 6 | CSV, JSONL, `spawn/await` (0.3.22 fix #31), binário RLE, `kof.log`, PII | `employees.csv` |
 | 02 Dataframe | 5 | `DataFrame`/`Series`, `GroupBy`/`Join`, SVG, HTML | `iris.csv` |
 | 03 ML | 6 | `zscore`/`oneHot`, SGD, Tree `gini`, `falseNeg`, hold-out `70/30`, PSI | `houses.tsv` |
 | 04 Deep | 5 | `Tensor`, `Value` Autograd, `MLP`, `Adam` (`paramsCsv`), Registry | `iris.csv` |
@@ -23,8 +23,8 @@
 ```bash
 export PATH="$HOME/.kof/bin:$PATH"
 kof run <lab.kof>              # 51/51 OK
-kof test <exercise.kof>        # 51 suítes, 0 failed
-bash scripts/run-tests.sh      # fmt + testes (50→51, ~90s em 0.3.2)
+kof test <exercise/exercise.kof>        # 51 suítes, 0 failed
+bash scripts/run-tests.sh      # fmt + testes (50→51, ~90s em 0.3.22)
 kof inspect <lab.kof>          # IR
 kof profile <lab.kof>          # CPU/RSS
 kof build --target native|js <lab.kof> # gates CONC001/DB001
@@ -35,7 +35,7 @@ kof build --target native|js <lab.kof> # gates CONC001/DB001
 ## Docs
 
 - `Claude.md` — estrutura modular completa (51 labs)
-- `docs/LIMITACOES-KOF-0.1.3.md` — migração `0.1.3→0.3.2` (3 novos gaps)
+- `docs/LIMITACOES-KOF-0.1.3.md` — migração `0.1.3→0.3.22` (3 novos gaps)
 - `docs/GLOSSARIO.md` — Kof×Python/Spark
 - `docs/BENCHMARKS.md` — `profile`/`bench` para `tensor`/`RLE`
 - `docs/RUBRICA.md` — certificação Básica/Intermediária/Avançada

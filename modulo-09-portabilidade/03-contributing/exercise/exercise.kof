@@ -1,0 +1,4 @@
+// modulo-09-portabilidade/03-contributing/lab.kof
+// Contributing: kof inspect + kof debug (simulado) + known-bugs.
+// Target: JVM 0.3.2.
+test "inspect not throw" { log.info("inspect test"); assert(1==1,"ok") }

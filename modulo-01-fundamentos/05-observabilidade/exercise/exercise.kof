@@ -1,0 +1,16 @@
+// modulo-01-fundamentos/05-observabilidade/lab.kof
+// Observabilidade e validação: log estruturado (kof.log) + validação manual
+// que em versões futuras será kof.validation (13 predicados, VAL001).
+// Também documenta building para Native/JS.
+// Target: JVM (log é JVM/Native/JS, conforme docs).
+split(String s, String delim): List<String> { var out=listOf<String>(); var start=0; var n=s.length; var i=0; while(i<n){ if(s.charAt(i)==delim.charAt(0)){ out.add(s.substring(start,i)); start=i+1 } i=i+1 } out.add(s.substring(start,n)); return out }
+trim(String s): String { var n=s.length; var start=0; while(start<n){ var c=s.charAt(start); if(c!=32&&c!=9&&c!=10&&c!=13){break} start=start+1 } var end=n; while(end>start){ var c=s.charAt(end-1); if(c!=32&&c!=9&&c!=10&&c!=13){break} end=end-1 } return s.substring(start,end) }
+indexOf(String s, String needle): Int { if(needle.length==0){return 0} var n=s.length; var m=needle.length; if(m>n){return -1} var limit=n-m; var i=0; while(i<=limit){ var match=1; var j=0; while(j<m){ if(s.charAt(i+j)!=needle.charAt(j)){match=0; j=m} else{j=j+1} } if(match==1){return i} i=i+1 } return -1 }
+record User(String name, String email)
+// validateUser: manual checks that mirror kof.validation predicates
+// - required(name), notBlank(name), isEmail(email)
+validateUser(User u): String { if(u.name==null || trim(u.name).length==0){return "name: required"} if(indexOf(u.email,"@")==-1){return "email: isEmail failed"} if(indexOf(u.email,".")==-1){return "email: isEmail failed"} return "" }
+test "validateUser ok" { var u=User("Alice","alice@example.com"); var e=validateUser(u); assert(e=="","ok") }
+test "validateUser empty name fails" { var u=User("","bob@example.com"); var e=validateUser(u); assert(e.contains("required"),"required") }
+test "validateUser bad email fails" { var u=User("Carol","not-an-email"); var e=validateUser(u); assert(e.contains("isEmail"),"isEmail") }
+test "validateUser david ok" { var u=User("David","david@kof.io"); var e=validateUser(u); assert(e=="","ok") }

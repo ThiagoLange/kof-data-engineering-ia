@@ -15,14 +15,8 @@ saveCheckpoint(String path, Adam opt): Int { var cp=Checkpoint(opt.params, opt.g
 loadCheckpoint(String path): Checkpoint { var raw=File(path).readText(); if(raw==null){throw "checkpoint: cannot read "+path} return json.decode<Checkpoint>(raw) }
 gradLoss(List<Double> params): List<Double> { var g=listOf<Double>(); var gx=2.0*(params.get(0)-5.0); var gy=2.0*(params.get(1)- -3.0); g.add(gx); g.add(gy); return g }
 lossValue(List<Double> params): Double { var dx=params.get(0)-5.0; var dy=params.get(1)- -3.0; return dx*dx+dy*dy }
-main() {
-    var init=listOf<Double>(); init.add(0.0); init.add(0.0)
-    var opt=makeAdam(init,0.2)
-    println("init params: ["+opt.getParam(0).toString()+" "+opt.getParam(1).toString()+"] loss="+lossValue(opt.params).toString())
-    var iter=0; while(iter<20){ var g=gradLoss(opt.params); opt.step(g); var lv=lossValue(opt.params); println("step "+opt.getStep().toString()+" params=["+opt.getParam(0).toString()+" "+opt.getParam(1).toString()+"] loss="+lv.toString()); iter=iter+1 }
-    var ckPath="modulo-04-deep/04-otimizadores/adam.ckpt.json"
-    saveCheckpoint(ckPath, opt); println("saved checkpoint to "+ckPath)
-    var loaded=loadCheckpoint(ckPath); println("loaded step="+loaded.step.toString()+" params=["+loaded.params.get(0).toString()+" "+loaded.params.get(1).toString()+"]")
-    var d0=loaded.params.get(0)-opt.getParam(0); if(d0<0.0){d0=-d0} var d1=loaded.params.get(1)-opt.getParam(1); if(d1<0.0){d1=-d1} println("recovery error: "+d0.toString()+" "+d1.toString())
-    File(ckPath).delete(); println("checkpoint file deleted")
-}
+test "one adam step moves toward target" { var init=listOf<Double>(); init.add(0.0); init.add(0.0); var opt=makeAdam(init,0.2); var g=gradLoss(opt.params); var lossBefore=lossValue(opt.params); opt.step(g); var lossAfter=lossValue(opt.params); assert(lossAfter<lossBefore,"loss must decrease"); assert(opt.getParam(0)>0.0,"x moved positive"); assert(opt.getParam(1)<0.0,"y moved negative") }
+test "adam 20 steps approaches target" { var init=listOf<Double>(); init.add(0.0); init.add(0.0); var opt=makeAdam(init,0.2); var i=0; while(i<20){ var g=gradLoss(opt.params); opt.step(g); i=i+1 } var dx=opt.getParam(0)-5.0; if(dx<0.0){dx=-dx} assert(dx<2.0,"x within 2.0"); var dy=opt.getParam(1)- -3.0; if(dy<0.0){dy=-dy} assert(dy<2.0,"y within 2.0"); var lv=lossValue(opt.params); assert(lv<5.0,"loss <5") }
+test "checkpoint roundtrip exact" { var init=listOf<Double>(); init.add(1.0); init.add(2.0); var opt=makeAdam(init,0.1); var g=listOf<Double>(); g.add(0.5); g.add(-0.5); opt.step(g); var path="modulo-04-deep/04-otimizadores/test.ckpt.json"; saveCheckpoint(path,opt); var loaded=loadCheckpoint(path); var d0=loaded.params.get(0)-opt.getParam(0); if(d0<0.0){d0=-d0} assert(d0<0.0001,"param 0 recovery"); var d1=loaded.params.get(1)-opt.getParam(1); if(d1<0.0){d1=-d1} assert(d1<0.0001,"param 1 recovery"); assert(loaded.step==opt.getStep(),"step recovery"); File(path).delete() }
+test "powApprox correctness" { var p=powApprox(2.0,3); var d=p-8.0; if(d<0.0){d=-d} assert(d<0.0001,"2^3=8"); var p2=powApprox(0.9,2); var d2=p2-0.81; if(d2<0.0){d2=-d2} assert(d2<0.0001,"0.9^2=0.81") }
+test "gradLoss at target is zero" { var at=listOf<Double>(); at.add(5.0); at.add(-3.0); var g=gradLoss(at); assert(g.get(0)==0.0,"gx 0"); assert(g.get(1)==0.0,"gy 0"); var lv=lossValue(at); assert(lv==0.0,"loss 0") }

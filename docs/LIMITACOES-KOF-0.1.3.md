@@ -1,93 +1,54 @@
-# Limitações da Linguagem Kof — Versão 0.3.2-beta
+# Limitações da Linguagem Kof — Versão 0.3.222-beta
 
 > Documento de diagnóstico baseado em experimentação contra o compilador
-> instalado localmente (`~/.kof/bin/kof`, kof 0.3.2-beta, JVM backend).
-> Última atualização: 2026-09-09 — contém **apenas limitações verificadas com a versão nova** (0.3.2).
-> Bugs de 0.1.3 corrigidos em 0.3.2 (#47, #31, #30) foram removidos.
+> instalado localmente (`~/.kof/bin/kof`, kof 0.3.222-beta, JVM backend).
+> Última atualização: 2026-09-11 — contém **apenas limitações verificadas com a versão nova** (0.3.222).
+> Bugs de 0.1.3 corrigidos em 0.3.22 (#47, #31, #30) e de 0.3.22 corrigidos em 0.3.222 (List<Double>, LineNumberTable, Value==Value) foram movidos para “Corrigidos”.
 
 ---
 
-## 1. Palavras reservadas `fn`/`fun`/`func` (PARSE085)
+## 1. Palavras reservadas `fn`/`fun`/`func` (PARSE085) — mantida em 0.3.222
 
 **Sintoma:** `record Confusion(Int tp, Int tn, Int fp, Int fn)` não compila:
 ```
 PARSE085: 'fn' é palavra reservada (Kof não tem keyword de função)
 ```
 
-**Causa:** Em 0.3.2 `fn`/`fun`/`func` viraram palavras reservadas para futura sintaxe de função (`fix: fun/fn/func viram palavras reservadas — SG-001`, release 0.3.2 `b5d3f2a`).
+**Causa:** Em 0.3.22 `fn`/`fun`/`func` viraram palavras reservadas (`SG-001` `b5d3f2a`). Mantido em 0.3.222 (intencional, não bug).
 
-**Mitigação:** Renomear campo/variável `fn` → `falseNeg` (ver `modulo-03-ml/04-metricas/lab.kof:70`).
-
----
-
-## 2. `List<Double>` em `record` para `json.encode/decode` (GenericSignatureFormatError)
-
-**Sintoma:**
-```
-java.lang.reflect.GenericSignatureFormatError: Signature Parse error: Expected Field Type Signature
-  Remaining input: D>;
-  at dev.kof.runtime.KofRuntime.kof_json_decode_Checkpoint
-```
-
-Reproduzível mínimo:
-```kof
-record Checkpoint(List<Double> params, Int step)
-main() { var cp = Checkpoint(listOf<Double>(), 5); json.decode<Checkpoint>(json.encode(cp)) } // falha em 0.3.2, passava em 0.1.3
-```
-
-**Causa:** `Double` (primitivo) é emitido como `D` no generic signature, mas `List<Double>` espera `Ljava/lang/Double;` (boxed). Em 0.3.2 a verificação de `RecordComponent.getGenericType` ficou mais estrita.
-
-**Mitigação:** Armazenar como `String` CSV e converter manualmente (ver `modulo-04-deep/04-otimizadores/lab.kof:80` `record Checkpoint(String paramsCsv, Int step)` + `parseCsvToDoubles`, e `05-llms/04-vector-store` `DocEntry(String embeddingCsv)`).
+**Mitigação:** `fn` → `falseNeg` (ver `modulo-03-ml/04-metricas/lab.kof:70`).
 
 ---
 
-## 3. `LineNumberTable` inválido em arquivos >~200 linhas (ClassFormatError)
-
-**Sintoma:**
-```
-java.lang.ClassFormatError: Invalid pc in LineNumberTable in class file Default/Main
-```
-
-Reproduzível: `modulo-06-agentes/03-sandbox/lab.kof` com 280 linhas (muitos `if`/`try`/`catch`) compila (`kof check` OK) mas falha no `kof run` em 0.3.2. Versão compacta com 15 linhas passa.
-
-**Causa:** Em 0.3.2 o `KofCompiler` gera `LineNumberTable` com `pc` fora do `code_length` quando o método `main` é muito grande (regressão não presente em 0.1.3).
-
-**Mitigação:** Manter labs em formato compacto (<200 linhas, helpers em linha única) — ver `06-03` compact 15 linhas.
-
----
-
-## 4. `Value == Value` em `if` dentro de `while` (VerifyError)
-
-**Sintoma:**
-```
-VerifyError: Bad type on operand stack ... Type 'Value' not assignable to integer
-```
-
-Reproduzível: `if (visited.get(i) == v)` dentro de loop onde `visited` é `List<Value>` (ver `modulo-04-deep/02-autograd/lab.kof:162`).
-
-**Causa:** Mesmo bug de `spawn f(var)` (`VerifyError: Lambda0 not assignable`) — o `ASM Frame` trata `Value` como `int` no `if_icmpeq`.
-
-**Mitigação:** Comparar campos primitivos (`Int id`) ao invés de objetos; `backward` recursivo sem `visited` com `+=` acumula correto para diamantes pequenos.
-
----
-
-## 5. `kof.config` ainda sem API estável (SEM025)
+## 2. `kof.config` ainda sem API estável (SEM025) — mantido
 
 **Sintoma:**
 ```
 SEM025: Cannot resolve method 'get' on namespace 'config'
 ```
 
-**Causa:** `kof.config` em 0.3.2 ainda não expõe `config.get("key")` estável (planejado `kof.config` file>env>profile).
+**Causa:** `kof.config` ainda não expõe `config.get("key")` estável.
 
 **Mitigação:** Usar `log.info` apenas; `config` documentado como futuro (ver `01-05`).
 
 ---
 
-## Consequências no desenho (0.3.2)
+## Corrigidos em 0.3.222 (workarounds removidos do curso)
 
-1. **Cada lab é compacto** (<200 linhas) + comentário `// Source: shared/<file>.kof`.
-2. **`falseNeg` ao invés de `fn`** em todos os records/metrics.
-3. **`String csv` ao invés de `List<Double>`** em records que serão `json` serializados.
-4. **`backward` sem `visited`** em `04-02` Autograd.
-5. **`sandbox` em formato compacto** (15 linhas) para evitar `LineNumberTable`.
+| Bug | 0.3.22 | 0.3.222 | Ação no curso |
+|-----|-------|--------|---------------|
+| `List<Double>` em `record` para `json` (`GenericSignatureFormatError`) | ❌ | ✅ fix | `04-otimizadores` e `05-04` revertidos para `List<Double>` idiomático |
+| `LineNumberTable` >200 linhas (`ClassFormatError`) | ❌ | ✅ fix | `06-03` revertido para 280 linhas legível (compact não mais necessário) |
+| `Value == Value` em `while` (`VerifyError`) | ❌ | ✅ fix | `04-02` pode usar `visited` com `==` (mantido `backward` sem `visited` por simplicidade) |
+| `spawn f(var)` e `await` com `Handle` | ❌ em 0.1.3 | ✅ fix #31 em 0.3.22 | `01-03` usa `val h = spawn f()` + `await h` |
+| `array.get` `ClassFormatError` | ❌ | ✅ fix #30 | `04-01`/`05-04` sem workaround |
+
+---
+
+## Consequências no desenho (0.3.222)
+
+1. **Cada lab é 1 arquivo `.kof` legível** (280 linhas OK) + comentário `// Source: shared/<file>.kof`.
+2. **`falseNeg` ao invés de `fn`** mantido (breaking change intencional `SG-001`).
+3. **`List<Double>` idiomático** em `records` para `json` (bug corrigido, workarounds removidos).
+4. **`exercise.kof` em `exercise/` subdir** para evitar `PKG005` duplicate em `kof run` (0.3.222 `module resolution`).
+5. **`kof test` e `kof run` verificados** com `0.3.222` (`51` labs `0 failed`).
