@@ -15,7 +15,7 @@ Este repositório contém o material didático, labs executáveis e referências
 
 ## 2. Estrutura Modular e Relação de Exemplos Práticos
 
-Cada lição deve conter: `README.md` (conceito + diagrama), `lab.kof` (código completo comentado) e `exercise.kof` (com asserções `assert`). **Total: 51 labs em 11 módulos (0–10), 100% em `kof 0.3.22-beta`.**
+Cada lição deve conter: `README.md` (conceito + diagrama), `lab.kof` (código completo comentado) e `exercise.kof` (com asserções `assert`). **Total: 51 labs em 11 módulos (0–10), 100% em `kof 0.4.4-beta`.**
 
 ### Módulo 00: Setup & Toolchain
 - **Exemplo 0.1: Verificação da Toolchain Kof** — `kof version/info/check/inspect` + validação de `datasets/` (8 arquivos, `iris_full.csv` 150 linhas).
@@ -23,7 +23,7 @@ Cada lição deve conter: `README.md` (conceito + diagrama), `lab.kof` (código 
 ### Módulo 01: Fundamentos de Kof para Engenharia de Dados
 - **Exemplo 1.1: Parser e Leitura Streamed de Arquivos Delimitados (CSV/TSV)**
 - **Exemplo 1.2: Serialização e Desserialização de Schemas JSON e JSONL**
-- **Exemplo 1.3: Pipeline de Transformação Concorrente / Paralela** — `spawn` zero-arg + `Handle<T>` + `await` memoizado (0.3.22 fix #31)
+- **Exemplo 1.3: Pipeline de Transformação Concorrente / Paralela** — `spawn` + `Handle<T>` + `await` memoizado (fix #31, mantido em 0.4.4; `spawn f(var)` funciona)
 - **Exemplo 1.4: I/O Binário e Compressão de Dados** — formato `KOF1` + RLE
 - **Exemplo 1.5: Observabilidade e Validação (`kof.log`)** — `log.info/error` JSON + validação manual (`isEmail`, `required`)
 - **Exemplo 1.6: PII + Secrets + RateLimit (`kof.security`)** — `maskEmail`/`maskSsn` + `secrets.get` + `RateLimiter`
@@ -39,22 +39,22 @@ Cada lição deve conter: `README.md` (conceito + diagrama), `lab.kof` (código 
 - **Exemplo 3.1: Normalização e Engenharia de Features**
 - **Exemplo 3.2: Regressão Linear com Gradiente Descendente Estocástico (SGD)**
 - **Exemplo 3.3: Classificador de Árvore de Decisão Simples (ID3 / Gini Impurity)**
-- **Exemplo 3.4: Suíte de Avaliação de Métricas Preditivas** — `falseNeg` (renomeado de `fn`, 0.3.22 `PARSE085`)
+- **Exemplo 3.4: Suíte de Avaliação de Métricas Preditivas** — `falseNeg` (renomeado de `fn`, `PARSE085` mantido em 0.4.4)
 - **Exemplo 3.5: Hold-out e K-Fold Cross-Validation** — `holdout(0.7)` `11/4` + `kFoldSplits(3)` → `0.978` em `iris_full.csv`
 - **Exemplo 3.6: PSI / Drift e Calibration (ECE)** — `psi` 5 bins `iris vs iris_full` + `ECE` 5 bins
 
 ### Módulo 04: Deep Learning & Tensores
 - **Exemplo 4.1: Classe Tensor N-Dimensional e Operações de Álgebra Linear**
-- **Exemplo 4.2: Grafo Computacional e Diferenciação Automática (Autograd)** — `Value` + `backward` recursivo (workaround `Value==Value` VerifyError)
+- **Exemplo 4.2: Grafo Computacional e Diferenciação Automática (Autograd)** — `Value` + `backward` recursivo (bug `Value==Value` corrigido em 0.3.22+, verificado em 0.4.4)
 - **Exemplo 4.3: Perceptron Multicamadas (MLP) para Classificação Não-Linear**
-- **Exemplo 4.4: Otimizadores e Checkpoint de Modelos** — `Adam` + `Checkpoint` `String paramsCsv` (0.3.22 `GenericSignatureFormatError`)
+- **Exemplo 4.4: Otimizadores e Checkpoint de Modelos** — `Adam` + `Checkpoint` `List<Double>` idiomático (workaround `paramsCsv` removido em 0.3.22+)
 - **Exemplo 4.5: Model Registry (`kof.log` + `kof.web` simulado)** — `ModelVersion` + promoção por `accuracy` + `registry.jsonl`
 
 ### Módulo 05: LLMs & Engenharia de Embeddings
 - **Exemplo 5.1: Cliente HTTP para Inferência de Modelos Fundacionais**
 - **Exemplo 5.2: Tokenizador e Estratégia de Chunking Semântico**
 - **Exemplo 5.3: Motor de Similaridade Vetorial (Cosine Distance)**
-- **Exemplo 5.4: Banco Vetorial Simples em Memória (Vector Store RAG)** — `DocEntry` `embeddingCsv` (0.3.22)
+- **Exemplo 5.4: Banco Vetorial Simples em Memória (Vector Store RAG)** — `DocEntry` `List<Double>` idiomático (workaround `embeddingCsv` removido em 0.3.22+)
 - **Exemplo 5.5: Chunking Semântico (por sentença)** — `chunkBySentence` vs `chunkSemantic(maxWords=10)`
 - **Exemplo 5.6: Avaliação RAG (`hit@k`, `MRR`)** — 3 queries sintéticas sobre `docs.jsonl`
 - **Exemplo 5.7: Avaliação LLM (`latency`/`tokens` + `ECE` real)** — `fakeLLM` + `wordSplit` + `ECE` 5 bins
@@ -62,7 +62,7 @@ Cada lição deve conter: `README.md` (conceito + diagrama), `lab.kof` (código 
 ### Módulo 06: Agentes de IA e Tool Calling
 - **Exemplo 6.1: Schema de Ferramentas e Serialização de Chamadas**
 - **Exemplo 6.2: Loop de Raciocínio ReAct (Reasoning + Acting)**
-- **Exemplo 6.3: Execução Segura e Sandboxing de Ferramentas** — compact 15 linhas (0.3.22 `LineNumberTable`)
+- **Exemplo 6.3: Execução Segura e Sandboxing de Ferramentas** — 280 linhas legível (formato compact não mais necessário desde 0.3.22+)
 - **Exemplo 6.4: Gerenciamento de Memória Conversacional e Estado de Agente**
 - **Exemplo 6.5: MCP-like Tool Server (`kof.web` simulado)** — `ToolServer` + `register`/`call`
 - **Exemplo 6.6: Avaliação de Agente (`success@k`, `tool_error_rate`)** — `evalTraces`

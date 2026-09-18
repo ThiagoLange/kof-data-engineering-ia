@@ -1,8 +1,8 @@
 # Template de Lição
 
 > Estrutura canônica para cada lab do treinamento Kof para IA & Dados.
-> Aplicada em todos os 51 labs (11 módulos 00–10) em `kof 0.3.22-beta`.
-> Cada lab tem variante compacta (<200 linhas) para evitar `LineNumberTable` bug em 0.3.22.
+> Aplicada em todos os 51 labs (11 módulos 00–10) em `kof 0.4.4-beta`.
+> `exercise.kof` fica em `exercise/` subdir para evitar `PKG005` duplicate em `kof run` (module resolution desde 0.3.22).
 
 ## Arquivos por lab
 
@@ -10,7 +10,8 @@
 <modulo>/<lab-id>-<slug>/
 ├── README.md         # Conceito + diagrama + comandos + checklist
 ├── lab.kof           # Implementação completa comentada (demonstração)
-└── exercise.kof      # Versão com TODOs + assertions (kof test)
+└── exercise/
+    └── exercise.kof  # Versão com TODOs + assertions (kof test)
 ```
 
 ## Estrutura do `README.md`
@@ -32,7 +33,7 @@
 
 ## Comandos
 kof run modulo-X/lab-Y/lab.kof
-kof test modulo-X/lab-Y/exercise.kof
+kof test modulo-X/lab-Y/exercise/exercise.kof
 
 ## Padrões & Idiomática Kof
 <Quando usar throw vs sentinel, loops vs lambdas, etc.>

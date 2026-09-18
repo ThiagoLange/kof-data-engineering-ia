@@ -25,11 +25,11 @@ iris.csv ─► loadIrisSummary ─┘
 
 ```bash
 kof run modulo-07-integracao/01-pipeline-batch/lab.kof
-kof test modulo-07-integracao/01-pipeline-batch/exercise.kof
+kof test modulo-07-integracao/01-pipeline-batch/exercise/exercise.kof
 ```
 
 ## Padrões
 
 - Funções puras compostas; `main` orquestra I/O ↔ lógica.
 - `htmlEscape`/`jsData` idênticos ao Lab 02-04 — reutilização intencional.
-- Compact format para 0.3.2 (evita LineNumberTable bug em arquivos >250 linhas).
+- Formato legível (compact era workaround 0.3.2 `LineNumberTable`, corrigido em 0.3.22+).

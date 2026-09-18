@@ -1,27 +1,29 @@
 // shared/numberparse.kof
-// Strict numeric parsing.
+// Strict numeric parsing (didactic manual implementation; verified on 0.4.4).
 //
 // Idiomatic strategy (per training/idioms/errors.md): throw a String on bad
 // input rather than return a sentinel. There is no Option<T>/Result<T> in
 // the language today.
 //
-// COMPILER WORKAROUNDS (Kof 0.1.3-beta JVM backend):
+// NOTE 0.4.0+: the stdlib now ships math.parseInt/parseDouble and
+// math.parseIntOrDefault ("abc" -> default, no throw). These manual parsers
+// are kept as teaching content (char-level parsing); production code may
+// prefer math.parseIntOrDefault for optional CSV cells.
 //
-// 1. `x = x * 10.0 + (ch - 48).toDouble()` triggers COMP002 (asm frame
-//    crash). Use `x = x * 10.0 + ch - 48.0` — keep rhs purely Double,
-//    avoid .toDouble() inside if branches of while loops.
+// HISTORICAL WORKAROUNDS (0.1.3-beta, all fixed since 0.3.22+, kept as style):
 //
-// 3. `println(parseFloatStrict(...))` combined with a try/catch around
-//    another parseFloatStrict in the same main produces a VerifyError
-//    ("Bad type on operand stack"). Workaround: assign to a local first
-//    (`var a = parseFloatStrict(...); println(a)`).
+// 1. `x = x * 10.0 + (ch - 48).toDouble()` triggered COMP002 (asm frame
+//    crash). Style kept: `x = x * 10.0 + ch - 48.0` — keep rhs purely Double.
 //
-// 2. Nullable return types on functions (Int?, Double?) are not supported
-//    in 0.1.3-beta — the type system supports nullable declarations on
-//    local/field variables only (see learn/13-nullability.md).
+// 2. `println(parseFloatStrict(...))` combined with try/catch around another
+//    parse in the same main produced VerifyError. Style kept: assign to a
+//    local first (`var a = parseFloatStrict(...); println(a)`).
 //
-// WORKAROUND: parseIntSafe / parseFloatSafe wrap strict parsers in
-// try/catch for call sites where absence is normal (CSV cells).
+// 3. Nullable return types (Int?, Double?) crashed the backend in 0.3.22
+//    (VerifyError foo()I/areturn); fixed in 0.4.4.
+//
+// parseIntSafe / parseFloatSafe wrap strict parsers in try/catch for call
+// sites where absence is normal (CSV cells).
 parseIntStrict(String s): Int {
     if (s == null) { throw "parseInt: null input" }
     var n = s.length

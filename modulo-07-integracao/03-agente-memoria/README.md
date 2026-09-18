@@ -28,11 +28,11 @@ question ─► Conversation.add(user)
 
 ```bash
 kof run modulo-07-integracao/03-agente-memoria/lab.kof
-kof test modulo-07-integracao/03-agente-memoria/exercise.kof
+kof test modulo-07-integracao/03-agente-memoria/exercise/exercise.kof
 ```
 
 ## Padrões
 
 - `Conversation` como objeto mutável (`List<ChatMessage>`), `summarize` retorna novo objeto (contorna `final field`).
 - Dispatcher com `Result(ok,output,error)` — nunca `throw` escapa para o loop.
-- Compact format para 0.3.2.
+- Formato legível (compact era workaround 0.3.2 `LineNumberTable`, corrigido em 0.3.22+).

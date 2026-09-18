@@ -25,11 +25,11 @@ iris_full.csv (150) ─► holdout(0.7) ─► train 105 / test 45 ─► tree 0
 
 ```bash
 kof run modulo-03-ml/05-validacao/lab.kof
-kof test modulo-03-ml/05-validacao/exercise.kof
+kof test modulo-03-ml/05-validacao/exercise/exercise.kof
 ```
 
 ## Padrões
 
 - Funções puras de split (`Split` record), sem `shuffle` (reprodutível).
 - Reusa `03-04` métricas via `accuracy` manual (evita `Confusion` genérico).
-- Compact format para 0.3.2.
+- Formato legível (compact era workaround 0.3.2 `LineNumberTable`, corrigido em 0.3.22+).

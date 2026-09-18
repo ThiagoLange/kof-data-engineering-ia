@@ -14,7 +14,7 @@ Demonstrar `kof.log` (estruturado, níveis `info`/`error`, `requestId`/`correlat
 
 ```bash
 kof run modulo-01-fundamentos/05-observabilidade/lab.kof
-kof test modulo-01-fundamentos/05-observabilidade/exercise.kof
+kof test modulo-01-fundamentos/05-observabilidade/exercise/exercise.kof
 kof build --target native modulo-01-fundamentos/05-observabilidade/lab.kof  # deve compilar (log não gateia)
 kof build --target js modulo-01-fundamentos/05-observabilidade/lab.kof
 ```
@@ -23,9 +23,9 @@ kof build --target js modulo-01-fundamentos/05-observabilidade/lab.kof
 
 - `log.info`/`log.error` em vez de `println` para eventos com nível.
 - Validação retorna `String` vazia = ok, senão mensagem — evita `throw` para erros esperados de input (diferente de `throw` para bugs).
-- Compact format para 0.3.2.
+- Formato legível (compact era workaround 0.3.2 `LineNumberTable`, corrigido em 0.3.22+).
 
 ## Gaps
 
-- `kof.config` (file>env>profile) ainda sem API estável em 0.3.2 (`config.get` → `SEM025`); por isso não usado neste lab.
+- `kof.config` (file>env>profile) ainda sem API estável em 0.4.4 (`config.get` → `SEM025`, verificado); por isso não usado neste lab.
 - `kof.validation` predicates estarão disponíveis como anotações `valid` em 0.4+; por enquanto manual.

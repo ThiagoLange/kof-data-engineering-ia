@@ -1,14 +1,14 @@
-# Guia de Execução — Passo a Passo (51 labs, kof 0.3.22-beta)
+# Guia de Execução — Passo a Passo (51 labs, kof 0.4.4-beta)
 
 > Siga exatamente nesta ordem. Todos os comandos assumem execução na **raiz do repositório** (`kof-data-engineering-ia/`).
 
 ## 0. Pré-requisitos
 
 ```bash
-# 1. Ativar toolchain 0.3.22 (instalada em ~/.kof)
+# 1. Ativar toolchain 0.4.4 (instalada em ~/.kof)
 export PATH="$HOME/.kof/bin:$PATH"
-kof version  # deve imprimir: kof 0.3.22-beta
-kof info     # JVM 21, Targets: jvm, native, js
+kof version  # deve imprimir: kof 0.4.4-beta
+kof info     # JVM 25 embedded, Targets: jvm, native, js
 
 # 2. Conferir datasets (8 arquivos, novo iris_full.csv 150 linhas)
 ls datasets/
@@ -150,7 +150,7 @@ kof run  modulo-10-capstone/01-pipeline-completo/lab.kof && kof test modulo-10-c
 ## 3. Verificação completa
 
 ```bash
-# Todos os labs de uma vez (50 suítes, ~90s em 0.3.22)
+# Todos os labs de uma vez (51 suítes, ~90s em 0.4.4)
 bash scripts/run-tests.sh
 
 # Apenas testes, sem fmt (mais rápido)
@@ -173,7 +173,7 @@ kof build --target native modulo-01-fundamentos/03-pipeline-paralelo/lab.kof  # 
 | `02-03` | `scatter.svg` / `bars.svg` | `xdg-open modulo-02-dataframe/03-svg-charts/scatter.svg` |
 | `02-04` | `report.html` | `xdg-open modulo-02-dataframe/04-html-report/report.html` |
 | `02-05` | `dashboard.html` | `xdg-open modulo-02-dataframe/05-web-charts/dashboard.html` |
-| `08-01` | `lake_*.jsonl` + `watermark.csv` | `cat modulo-08-data/01-lakehouse/watermark.csv` |
+| `08-01` | `lake/city=*/part-*.jsonl` + `watermark.csv` | `cat modulo-08-data/01-lakehouse/watermark.csv` |
 
 Todos são re-criados com `kof run` e removidos com `File(...).delete()` ao final do lab (exceto `02-03`/`02-04`/`02-05` que permanecem para `kof serve`).
 
@@ -181,8 +181,10 @@ Todos são re-criados com `kof run` e removidos com `File(...).delete()` ao fina
 
 | Erro | Causa | Solução |
 |------|-------|---------|
-| `PARSE085 'fn' é palavra reservada` | Código antigo com `fn` | Renomeado para `falseNeg` em `03-04` (0.3.22) |
-| `GenericSignatureFormatError` `List<Double>` | `record` com `List<Double>` para `json` | Usa `String csv` em `04-04`/`05-04` |
-| `Invalid pc in LineNumberTable` | Arquivo >200 linhas | `06-03` em formato compacto 15 linhas |
+| `PARSE085 'fn' é palavra reservada` | Código antigo com `fn` | Renomeado para `falseNeg` em `03-04` (mantido em 0.4.4) |
+| `GenericSignatureFormatError` `List<Double>` | Corrigido em 0.3.22+ | `List<Double>` idiomático em `04-04`/`05-04` (verificado em 0.4.4) |
+| `Invalid pc in LineNumberTable` | Corrigido em 0.3.22+ | `06-03` com 280 linhas legível (verificado em 0.4.4) |
+| `PKG005 duplicate type` em `kof run` | `lab.kof` + `exercise.kof` no mesmo dir | `exercise.kof` em `exercise/` subdir (module resolution desde 0.3.22, mantido em 0.4.4) |
+| `File.mkdir()` não cria diretório | No-op silencioso | Usar `Directory(...).createDirectories()` (verificado em 0.4.4, lab `08-01`) |
 | `kof: command not found` | `PATH` sem `~/.kof/bin` | `export PATH="$HOME/.kof/bin:$PATH"` |
 | `datasets/... cannot read` | Rodou fora da raiz | Sempre rodar na raiz `kof-data-engineering-ia/` |

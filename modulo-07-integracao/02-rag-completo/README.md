@@ -24,11 +24,11 @@ query ─► fakeEmbed ─► cosineSim vs all ─► topK(3) ─► Retrieval
 
 ```bash
 kof run modulo-07-integracao/02-rag-completo/lab.kof
-kof test modulo-07-integracao/02-rag-completo/exercise.kof
+kof test modulo-07-integracao/02-rag-completo/exercise/exercise.kof
 ```
 
 ## Padrões
 
-- Compact format para 0.3.2 (evita LineNumberTable).
-- `embeddingCsv` em `DocEntry` (compatível 0.3.2, ver `05-04`).
+- Formato legível (compact era workaround 0.3.2 `LineNumberTable`, corrigido em 0.3.22+).
+- `List<Double>` idiomático em `DocEntry` (workaround `embeddingCsv` removido em 0.3.22+, ver `05-04`).
 - `safeHead` para evitar `substring` OOB em chunks curtos.
