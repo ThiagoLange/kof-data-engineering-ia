@@ -1,7 +1,7 @@
 // modulo-03-ml/05-validacao/lab.kof
 // Hold-out e k-Fold cross-validation para decision-tree (03-03) com métricas (03-04).
 // Demonstra generalização: treina em 70% e avalia em 30% (não no treino).
-// Target: JVM 0.3.2 compact.
+// Target: JVM 0.4.7.
 split(String s, String delim): List<String> { var out=listOf<String>(); var start=0; var n=s.length; var i=0; while(i<n){ if(s.charAt(i)==delim.charAt(0)){ out.add(s.substring(start,i)); start=i+1 } i=i+1 } out.add(s.substring(start,n)); return out }
 trim(String s): String { var n=s.length; var start=0; while(start<n){ var c=s.charAt(start); if(c!=32&&c!=9&&c!=10&&c!=13){break} start=start+1 } var end=n; while(end>start){ var c=s.charAt(end-1); if(c!=32&&c!=9&&c!=10&&c!=13){break} end=end-1 } return s.substring(start,end) }
 parseFloatStrict(String s): Double { if(s==null){throw "parseFloat: null"} var n=s.length; if(n==0){throw "parseFloat: empty"} var i=0; var sign=1.0; var c=s.charAt(0); if(c==45){sign=-1.0; i=1} var intPart=0.0; while(i<n){ var ch=s.charAt(i); if(ch>=48&&ch<=57){intPart=intPart*10.0+ch-48.0; i=i+1} else{break} } var base=sign*intPart; var fracAcc=0.0; var div=1.0; var hasDot=0; if(i<n&&s.charAt(i)==46){hasDot=1; i=i+1} while(i<n&&hasDot==1){ var ch=s.charAt(i); if(ch>=48&&ch<=57){fracAcc=fracAcc*10.0+ch-48.0; div=div*10.0; i=i+1} else{break} } var frac=fracAcc/div; if(sign<0.0){frac=-frac} return base+frac }

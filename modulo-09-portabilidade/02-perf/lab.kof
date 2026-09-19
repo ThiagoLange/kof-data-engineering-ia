@@ -1,6 +1,6 @@
 // modulo-09-portabilidade/02-perf/lab.kof
 // Perf: kof profile + native vs JVM comparison (simulado, log + time).
-// Target: JVM 0.3.2 compact.
+// Target: JVM 0.4.7.
 main() {
     log.info("perf: kof profile modulo-04-deep/01-tensor/lab.kof")
     println("JVM profile: RSS ~120MB, CPU ~0.8s for 15x4 matmul")

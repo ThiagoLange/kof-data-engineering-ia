@@ -5,7 +5,7 @@ Gerar dashboard HTML com 2 SVGs server-side (`scatter`/`bars`) + `<canvas>` clie
 
 ## Conceito
 - **Server-side:** `scatterSvg`/`barSvg` (mesma math de `02-03`) → `File.writeText` `dashboard.html` com SVGs inline + `jsData` para Canvas. Estático, funciona nos 3 targets.
-- **Client-side (KofJS):** `<canvas id="chart">` + JS `getContext("2d")` `fillRect`/`fillText` (`UI009` Canvas fechado em 0.3.2, mantido em 0.4.4; `UI003` Table/Ul/Ol já OK). Em Kof, `kof.ui.Canvas` gera o mesmo JS via `KofJS` engine.
+- **Client-side (KofJS):** `<canvas id="chart">` + JS `getContext("2d")` `fillRect`/`fillText` (`UI009` Canvas fechado em 0.3.2, mantido em 0.4.7; `UI003` Table/Ul/Ol já OK). Em Kof, `kof.ui.Canvas` gera o mesmo JS via `KofJS` engine.
 - **Servir:** `kof run` gera `dashboard.html` + `scatter.svg`/`bars.svg`; `kof serve modulo-02-dataframe/05-web-charts --port 8080` ou `kof build --target js --output dist && kof serve dist`.
 
 ## Diagrama
@@ -35,4 +35,4 @@ kof test modulo-02-dataframe/05-web-charts/exercise/exercise.kof
 
 ## Gaps
 - `kof.web` server (`WEB002`) é JVM-only; `KofJS` `WEB002` → `kof serve` static é o workaround para JS.
-- `kof.ui` Window ainda `UI003` gap no Native; `Canvas` fecha `UI009` (desde 0.3.2, mantido em 0.4.4).
+- `kof.ui` Window ainda `UI003` gap no Native; `Canvas` fecha `UI009` (desde 0.3.2, mantido em 0.4.7).

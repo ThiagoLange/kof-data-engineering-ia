@@ -32,7 +32,7 @@ main() {
     }
     log.info("validation done ok="+ok.toString()+" fail="+fail.toString())
     println("validated "+users.size().toString()+" users: ok="+ok.toString()+" fail="+fail.toString())
-    // Native/JS portability note (docs/LIMITACOES 0.3.2):
+    // Native/JS portability note (docs/LIMITACOES):
     // - log.info works in all 3 targets (LOG001 fechado)
     // - kof build --target native  → CONC001, DB001 etc. still gate, but log/config are OK
     // - kof build --target js      → log OK, DB001 gates

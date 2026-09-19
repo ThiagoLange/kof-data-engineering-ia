@@ -1,6 +1,6 @@
 // modulo-09-portabilidade/03-contributing/lab.kof
 // Contributing: kof inspect + kof debug (simulado) + known-bugs.
-// Target: JVM 0.3.2.
+// Target: JVM 0.4.7.
 main() {
     log.info("contributing: kof inspect modulo-01-fundamentos/01-parser-csv-streamed/lab.kof")
     println("try: kof inspect modulo-01-fundamentos/01-parser-csv-streamed/lab.kof")

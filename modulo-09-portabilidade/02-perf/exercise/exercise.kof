@@ -1,5 +1,5 @@
 // modulo-09-portabilidade/02-perf/lab.kof
 // Perf: kof profile + native vs JVM comparison (simulado, log + time).
-// Target: JVM 0.3.2 compact.
+// Target: JVM 0.4.7.
 test "perf loop counts" { var c=0; var i=0; while(i<10){ c=c+1; i=i+1 } assert(c==10,"10") }
 test "log does not throw" { log.info("perf test"); assert(1==1,"log ok") }
