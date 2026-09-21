@@ -27,5 +27,5 @@ kof build --target js modulo-01-fundamentos/05-observabilidade/lab.kof
 
 ## Gaps
 
-- `kof.config` (file>env>profile) ainda sem API estável em 0.4.7 (`config.get` → `SEM025`, verificado); por isso não usado neste lab.
+- `kof.config` (file>env>profile) ainda sem API estável em 0.4.9 (`config.get` → `SEM025`, verificado); por isso não usado neste lab.
 - `kof.validation` predicates estarão disponíveis como anotações `valid` em 0.4+; por enquanto manual.

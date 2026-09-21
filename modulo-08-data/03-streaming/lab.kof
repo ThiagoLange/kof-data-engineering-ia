@@ -1,6 +1,6 @@
 // modulo-08-data/03-streaming/lab.kof
 // Streaming com kof.mq: pub/sub + tumbling window 5s (simulado com time.sleep + List buffer).
-// Target: JVM 0.4.7.
+// Target: JVM 0.4.9.
 split(String s, String delim): List<String> { var out=listOf<String>(); var start=0; var n=s.length; var i=0; while(i<n){ if(s.charAt(i)==delim.charAt(0)){ out.add(s.substring(start,i)); start=i+1 } i=i+1 } out.add(s.substring(start,n)); return out }
 trim(String s): String { var n=s.length; var start=0; while(start<n){ var c=s.charAt(start); if(c!=32&&c!=9&&c!=10&&c!=13){break} start=start+1 } var end=n; while(end>start){ var c=s.charAt(end-1); if(c!=32&&c!=9&&c!=10&&c!=13){break} end=end-1 } return s.substring(start,end) }
 record Transaction(Int tx_id, Int customer_id, Double amount)
