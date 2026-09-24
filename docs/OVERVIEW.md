@@ -1,6 +1,6 @@
 # Visão Geral — Treinamento Kof para Engenharia de Dados & IA
 
-> 51 labs, 11 módulos, 8 datasets, 100% em `kof 0.4.9-beta` (`~/.kof/bin/kof`).
+> 51 labs, 11 módulos, 8 datasets, 100% em `kof 0.4.10-beta` (`~/.kof/bin/kof`).
 
 ## Mapa de Módulos
 
@@ -24,7 +24,7 @@
 export PATH="$HOME/.kof/bin:$PATH"
 kof run <lab.kof>              # 51/51 OK
 kof test <exercise/exercise.kof>        # 51 suítes, 0 failed
-bash scripts/run-tests.sh      # fmt + testes (51 suítes, ~90s em 0.4.9)
+bash scripts/run-tests.sh      # fmt + testes (51 suítes, ~90s em 0.4.10)
 kof inspect <lab.kof>          # IR
 kof profile <lab.kof>          # CPU/RSS
 kof build --target native|js <lab.kof> # gates CONC001/DB001
@@ -35,7 +35,7 @@ kof build --target native|js <lab.kof> # gates CONC001/DB001
 ## Docs
 
 - `Claude.md` — estrutura modular completa (51 labs)
-- `docs/LIMITACOES-KOF-0.1.3.md` — migração `0.1.3→0.4.9` (2 gaps mantidos)
+- `docs/LIMITACOES-KOF-0.1.3.md` — migração `0.1.3→0.4.10` (2 gaps mantidos)
 - `docs/GLOSSARIO.md` — Kof×Python/Spark
 - `docs/BENCHMARKS.md` — `profile`/`bench` para `tensor`/`RLE`
 - `docs/RUBRICA.md` — certificação Básica/Intermediária/Avançada

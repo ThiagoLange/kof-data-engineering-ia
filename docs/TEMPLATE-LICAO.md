@@ -1,7 +1,7 @@
 # Template de Lição
 
 > Estrutura canônica para cada lab do treinamento Kof para IA & Dados.
-> Aplicada em todos os 51 labs (11 módulos 00–10) em `kof 0.4.9-beta`.
+> Aplicada em todos os 51 labs (11 módulos 00–10) em `kof 0.4.10-beta`.
 > `exercise.kof` fica em `exercise/` subdir para evitar `PKG005` duplicate em `kof run` (module resolution desde 0.3.22).
 
 ## Arquivos por lab

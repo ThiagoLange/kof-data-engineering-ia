@@ -1,7 +1,7 @@
 // modulo-07-integracao/02-rag-completo/lab.kof
 // RAG completo: chunking (05-02) → embeddings fake (05-03) → VectorStore (05-04) → retrieval → prompt.
 // Sem chamada LLM real; FakeLLM simula geração a partir do contexto recuperado.
-// Target: JVM 0.4.9.
+// Target: JVM 0.4.10.
 split(String s, String delim): List<String> { var out=listOf<String>(); var start=0; var n=s.length; var i=0; while(i<n){ if(s.charAt(i)==delim.charAt(0)){ out.add(s.substring(start,i)); start=i+1 } i=i+1 } out.add(s.substring(start,n)); return out }
 trim(String s): String { var n=s.length; var start=0; while(start<n){ var c=s.charAt(start); if(c!=32&&c!=9&&c!=10&&c!=13){break} start=start+1 } var end=n; while(end>start){ var c=s.charAt(end-1); if(c!=32&&c!=9&&c!=10&&c!=13){break} end=end-1 } return s.substring(start,end) }
 wordSplit(String t): List<String> { var out=listOf<String>(); var raw=split(t," "); var i=0; while(i<raw.size()){ var w=trim(raw.get(i)); if(w.length>0){out.add(w)} i=i+1 } return out }
