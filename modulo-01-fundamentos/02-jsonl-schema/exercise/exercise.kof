@@ -140,6 +140,7 @@ test "writeJsonl joins with newline" {
 
 test "parseJsonl reads real dataset (5 docs)" {
     var raw = File("datasets/docs.jsonl").readText()
+    if (raw == null) { throw "docs.jsonl readable" }
     var docs = parseJsonl(raw)
     assert(docs.size() == 5, "expected 5; got " + docs.size().toString())
     var d1 = docs.get(0)

@@ -132,6 +132,7 @@ parseRow(String line): Employee {
 
 readCsv(String path): List<Employee> {
     var raw = File(path).readText()
+    if (raw == null) { throw "csv: cannot read file: " + path }
     var lines = split(raw, "\n")
     var out = listOf<Employee>()
     var n = lines.size()

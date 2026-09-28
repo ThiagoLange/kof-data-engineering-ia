@@ -1,6 +1,6 @@
 // modulo-08-data/06-contratos/lab.kof
 // Contratos & Linhagem: schema version + correlationId por tx + lineage.jsonl.
-// Target: JVM 0.4.10.
+// Target: JVM 0.5.0.
 split(String s, String delim): List<String> { var out=listOf<String>(); var start=0; var n=s.length; var i=0; while(i<n){ if(s.charAt(i)==delim.charAt(0)){ out.add(s.substring(start,i)); start=i+1 } i=i+1 } out.add(s.substring(start,n)); return out }
 trim(String s): String { var n=s.length; var start=0; while(start<n){ var c=s.charAt(start); if(c!=32&&c!=9&&c!=10&&c!=13){break} start=start+1 } var end=n; while(end>start){ var c=s.charAt(end-1); if(c!=32&&c!=9&&c!=10&&c!=13){break} end=end-1 } return s.substring(start,end) }
 record Schema(Int version, String columns)
@@ -26,6 +26,8 @@ main() {
     var sb=""; var k=0; while(k<lineage.size()){ if(k>0){sb=sb+"\n"} sb=sb+json.encode(lineage.get(k)); k=k+1 }
     File(path).writeText(sb); println("wrote "+path+" ("+lineage.size().toString()+" entries)")
     // read back
-    var raw=File(path).readText(); var lines=split(raw,"\n"); println("lineage lines: "+lines.size().toString())
+    var raw=File(path).readText()
+    if (raw == null) { throw "lineage: cannot reload "+path }
+    var lines=split(raw,"\n"); println("lineage lines: "+lines.size().toString())
     File(path).delete(); println("cleaned")
 }

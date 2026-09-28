@@ -14,9 +14,9 @@ kof test modulo-08-data/01-lakehouse/exercise/exercise.kof
 
 ## Padrões
 - `cityForTx` linear scan (datasets pequenos); produção usaria `Map`.
-- `Directory(...).createDirectories()` (verificado em 0.4.10; `File.mkdir()` é no-op silencioso — ver `docs/LIMITACOES-KOF-0.1.3.md`) + `File.writeText` para partições.
+- `Directory(...).createDirectories()` + `File.writeText` para partições (`File.mkdir()` voltou a funcionar em 0.5.0, mas `Directory` fica — ver `docs/LIMITACOES-KOF-0.1.3.md`).
 - Watermark como `csv` append-only — auditável.
 
 ## Gaps
 - Sem `kof.db` catálogo ainda; próxima iteração usa SQLite nativo.
-- `File.mkdir()` não cria diretórios (no-op silencioso em 0.4.10); usar `Directory.createDirectories()`.
+- `File.mkdir()` era no-op silencioso até 0.4.x (corrigido em 0.5.0); `Directory.createDirectories()` segue recomendado.

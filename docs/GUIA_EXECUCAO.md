@@ -1,13 +1,13 @@
-# Guia de Execução — Passo a Passo (51 labs, kof 0.4.10-beta)
+# Guia de Execução — Passo a Passo (51 labs, kof 0.5.0-beta)
 
 > Siga exatamente nesta ordem. Todos os comandos assumem execução na **raiz do repositório** (`kof-data-engineering-ia/`).
 
 ## 0. Pré-requisitos
 
 ```bash
-# 1. Ativar toolchain 0.4.10 (instalada em ~/.kof)
+# 1. Ativar toolchain 0.5.0 (instalada em ~/.kof)
 export PATH="$HOME/.kof/bin:$PATH"
-kof version  # deve imprimir: kof 0.4.10-beta
+kof version  # deve imprimir: kof 0.5.0-beta
 kof info     # JVM 25 embedded, Targets: jvm, native, js
 
 # 2. Conferir datasets (8 arquivos, novo iris_full.csv 150 linhas)
@@ -150,7 +150,7 @@ kof run  modulo-10-capstone/01-pipeline-completo/lab.kof && kof test modulo-10-c
 ## 3. Verificação completa
 
 ```bash
-# Todos os labs de uma vez (51 suítes, ~90s em 0.4.10)
+# Todos os labs de uma vez (51 suítes, ~90s em 0.5.0)
 bash scripts/run-tests.sh
 
 # Apenas testes, sem fmt (mais rápido)
@@ -181,10 +181,10 @@ Todos são re-criados com `kof run` e removidos com `File(...).delete()` ao fina
 
 | Erro | Causa | Solução |
 |------|-------|---------|
-| `PARSE085 'fn' é palavra reservada` | Código antigo com `fn` | Renomeado para `falseNeg` em `03-04` (mantido em 0.4.10) |
-| `GenericSignatureFormatError` `List<Double>` | Corrigido em 0.3.22+ | `List<Double>` idiomático em `04-04`/`05-04` (verificado em 0.4.10) |
-| `Invalid pc in LineNumberTable` | Corrigido em 0.3.22+ | `06-03` com 280 linhas legível (verificado em 0.4.10) |
-| `PKG005 duplicate type` em `kof run` | `lab.kof` + `exercise.kof` no mesmo dir | `exercise.kof` em `exercise/` subdir (module resolution desde 0.3.22, mantido em 0.4.10) |
-| `File.mkdir()` não cria diretório | No-op silencioso | Usar `Directory(...).createDirectories()` (verificado em 0.4.10, lab `08-01`) |
+| `PARSE085 'fn' é palavra reservada` | Código antigo com `fn` | Renomeado para `falseNeg` em `03-04` (mantido em 0.5.0) |
+| `GenericSignatureFormatError` `List<Double>` | Corrigido em 0.3.22+ | `List<Double>` idiomático em `04-04`/`05-04` (verificado em 0.5.0) |
+| `Invalid pc in LineNumberTable` | Corrigido em 0.3.22+ | `06-03` com 280 linhas legível (verificado em 0.5.0) |
+| `PKG005 duplicate type` em `kof run` | `lab.kof` + `exercise.kof` no mesmo dir | `exercise.kof` em `exercise/` subdir (module resolution desde 0.3.22, mantido em 0.5.0) |
+| `File.mkdir()` não criava diretório | No-op silencioso até 0.4.x | Corrigido em 0.5.0; `Directory(...).createDirectories()` segue recomendado (lab `08-01`) |
 | `kof: command not found` | `PATH` sem `~/.kof/bin` | `export PATH="$HOME/.kof/bin:$PATH"` |
 | `datasets/... cannot read` | Rodou fora da raiz | Sempre rodar na raiz `kof-data-engineering-ia/` |

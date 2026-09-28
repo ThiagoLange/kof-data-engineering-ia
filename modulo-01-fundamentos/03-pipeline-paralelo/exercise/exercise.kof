@@ -90,6 +90,7 @@ parseFloatSafe(String s, Double fallback): Double {
 
 sumIrisRange(String path, Int lo, Int hi): Double {
     var raw = File(path).readText()
+    if (raw == null) { throw "csv: cannot read file: " + path }
     var lines = split(raw, "\n")
     var acc = 0.0
     var i = 1 + lo
