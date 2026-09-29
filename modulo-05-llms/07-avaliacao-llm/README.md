@@ -1,4 +1,10 @@
 # Lab 5.7 — Avaliação LLM (latency/tokens + ECE)
+
+location: modulo-05-llms/07-avaliacao-llm
+state: done
+instructions:
+  - test
+
 ## Objetivo
 Medir `tokens` (`wordSplit`), `latencyMs` simulada e `ECE` real (5 bins) sobre `fakeLLM` com `confidence`.
 ## Comandos

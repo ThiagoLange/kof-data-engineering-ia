@@ -1,5 +1,10 @@
 # Lab 2.1 — Implementação de Estrutura DataFrame em Kof
 
+location: modulo-02-dataframe/01-dataframe
+state: done
+instructions:
+  - test
+
 ## Objetivo
 
 Construir uma estrutura `DataFrame` tipada em Kof — colunas `Series` (label + `List<Double>`), índice de linhas `List<String>` e operações de seleção, filtro booleano vetorial, `head`/`tail` e `describe` — carregando dados reais de `datasets/iris.csv`.

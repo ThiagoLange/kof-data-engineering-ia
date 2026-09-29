@@ -1,5 +1,10 @@
 # Lab 7.2 — RAG Completo (Chunking → Vector Store → Retrieval → Prompt)
 
+location: modulo-07-integracao/02-rag-completo
+state: done
+instructions:
+  - test
+
 ## Objetivo
 
 Encadear `05-02` (chunking 8/3), `05-04` (VectorStore fake embeddings), `05-03` (cosine) em pipeline RAG: cada doc de `docs.jsonl` é chunkado, cada chunk indexado, query recupera top-3, `buildPrompt` monta contexto e `FakeLLM` gera resposta.

@@ -1,5 +1,10 @@
 # Lab 1.5 — Observabilidade e Validação (kof.log)
 
+location: modulo-01-fundamentos/05-observabilidade
+state: done
+instructions:
+  - test
+
 ## Objetivo
 
 Demonstrar `kof.log` (estruturado, níveis `info`/`error`, `requestId`/`correlationId`) e validação manual que em versões futuras será `kof.validation` (13 predicados, `VAL001`).

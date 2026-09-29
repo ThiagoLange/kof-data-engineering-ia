@@ -1,5 +1,10 @@
 # Lab 3.1 — Normalização e Engenharia de Features
 
+location: modulo-03-ml/01-features-normalization
+state: done
+instructions:
+  - test
+
 ## Objetivo
 
 Implementar em Kof, como funções puras sobre `List<Double>`, as duas

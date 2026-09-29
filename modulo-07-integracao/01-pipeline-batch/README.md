@@ -1,5 +1,10 @@
 # Lab 7.1 — Pipeline Batch End-to-End (CSV → Join → GroupBy → HTML)
 
+location: modulo-07-integracao/01-pipeline-batch
+state: done
+instructions:
+  - test
+
 ## Objetivo
 
 Encadear em um único `main` os labs `01-01` (parser), `02-02` (join/agg) e `02-04` (HTML com canvas) — o fluxo batch clássico: ingestão → transformação → relatório.

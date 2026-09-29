@@ -1,4 +1,10 @@
 # Lab 5.6 — Avaliação RAG (hit@k, MRR)
+
+location: modulo-05-llms/06-rag-eval
+state: done
+instructions:
+  - test
+
 ## Objetivo
 Medir `hit@1` e `MRR` sobre 3 queries sintéticas contra `docs.jsonl` com `fakeEmbed` 4-D e `cosineSim` ranking.
 ## Comandos

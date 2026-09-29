@@ -1,4 +1,4 @@
-# Guia de Execução — Passo a Passo (51 labs, kof 0.5.0-beta)
+# Guia de Execução — Passo a Passo (53 labs, kof 0.5.0-beta)
 
 > Siga exatamente nesta ordem. Todos os comandos assumem execução na **raiz do repositório** (`kof-data-engineering-ia/`).
 
@@ -106,7 +106,7 @@ kof run  modulo-05-llms/06-rag-eval/lab.kof && kof test modulo-05-llms/06-rag-ev
 kof run  modulo-05-llms/07-avaliacao-llm/lab.kof && kof test modulo-05-llms/07-avaliacao-llm/exercise/exercise.kof
 ```
 
-### Módulo 06 — Agentes (6 labs)
+### Módulo 06 — Agentes (7 labs)
 ```bash
 kof run  modulo-06-agentes/01-tool-schema/lab.kof && kof test modulo-06-agentes/01-tool-schema/exercise/exercise.kof
 kof run  modulo-06-agentes/02-react-loop/lab.kof && kof test modulo-06-agentes/02-react-loop/exercise/exercise.kof
@@ -114,6 +114,7 @@ kof run  modulo-06-agentes/03-sandbox/lab.kof && kof test modulo-06-agentes/03-s
 kof run  modulo-06-agentes/04-memoria/lab.kof && kof test modulo-06-agentes/04-memoria/exercise/exercise.kof
 kof run  modulo-06-agentes/05-mcp-server/lab.kof && kof test modulo-06-agentes/05-mcp-server/exercise/exercise.kof
 kof run  modulo-06-agentes/06-avaliacao/lab.kof && kof test modulo-06-agentes/06-avaliacao/exercise/exercise.kof
+kof run  modulo-06-agentes/07-agent-kofmd/lab.kof && kof test modulo-06-agentes/07-agent-kofmd/exercise/exercise.kof
 ```
 
 ### Módulo 07 — Integração (3 labs)
@@ -135,11 +136,12 @@ kof run  modulo-08-data/07-cdc/lab.kof && kof test modulo-08-data/07-cdc/exercis
 kof run  modulo-08-data/08-cache/lab.kof && kof test modulo-08-data/08-cache/exercise/exercise.kof
 ```
 
-### Módulo 09 — Portabilidade (3 labs)
+### Módulo 09 — Portabilidade (4 labs)
 ```bash
 kof run  modulo-09-portabilidade/01-native/lab.kof && kof test modulo-09-portabilidade/01-native/exercise/exercise.kof
 kof run  modulo-09-portabilidade/02-perf/lab.kof && kof test modulo-09-portabilidade/02-perf/exercise/exercise.kof
 kof check modulo-09-portabilidade/03-contributing/lab.kof && kof run modulo-09-portabilidade/03-contributing/lab.kof
+kof run  modulo-09-portabilidade/04-kofmd/lab.kof && kof test modulo-09-portabilidade/04-kofmd/exercise/exercise.kof
 ```
 
 ### Módulo 10 — Capstone (1 lab)

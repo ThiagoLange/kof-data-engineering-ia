@@ -1,6 +1,6 @@
 # Visão Geral — Treinamento Kof para Engenharia de Dados & IA
 
-> 51 labs, 11 módulos, 8 datasets, 100% em `kof 0.5.0-beta` (`~/.kof/bin/kof`).
+> 53 labs, 11 módulos, 8 datasets, 100% em `kof 0.5.0-beta` (`~/.kof/bin/kof`).
 
 ## Mapa de Módulos
 
@@ -34,7 +34,7 @@ kof build --target native|js <lab.kof> # gates CONC001/DB001
 
 ## Docs
 
-- `Claude.md` — estrutura modular completa (51 labs)
+- `Claude.md` — estrutura modular completa (53 labs)
 - `docs/LIMITACOES-KOF-0.1.3.md` — migração `0.1.3→0.5.0` (2 gaps mantidos)
 - `docs/GLOSSARIO.md` — Kof×Python/Spark
 - `docs/BENCHMARKS.md` — `profile`/`bench` para `tensor`/`RLE`

@@ -1,4 +1,10 @@
 # Lab 8.8 — Feature Store Online (kof.cache TTL)
+
+location: modulo-08-data/08-cache
+state: done
+instructions:
+  - test
+
 ## Objetivo
 Simular `kof.cache` com `CacheEntry(key,value,expiresAt)` + `put`/`get` com TTL e `tick` para avançar tempo, demonstrando serving online com expiração.
 ## Comandos

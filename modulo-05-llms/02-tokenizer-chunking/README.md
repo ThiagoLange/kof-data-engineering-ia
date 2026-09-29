@@ -1,5 +1,10 @@
 # Lab 5.2 — Tokenizador e Estratégia de Chunking Semântico
 
+location: modulo-05-llms/02-tokenizer-chunking
+state: done
+instructions:
+  - test
+
 ## Objetivo
 
 Implementar tokenização por scan de caracteres (lowercase, split de pontuação, vocab de frequências) e chunking com janela deslizante e overlap configurável — por palavras e por caracteres — sobre `datasets/docs.jsonl`.

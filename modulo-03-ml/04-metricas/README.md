@@ -1,5 +1,10 @@
 # Lab 3.4 — Suíte de Avaliação de Métricas Preditivas
 
+location: modulo-03-ml/04-metricas
+state: done
+instructions:
+  - test
+
 ## Objetivo
 
 Implementar métricas de classificação binária (Matriz de Confusão, Acurácia, Precisão, Recall, F1-Score) a partir de vetores `y_true`/`y_pred` 0/1, lendo o dataset real `datasets/classification_eval.jsonl` e tratando divisões por zero (caso `TP+FP=0`).

@@ -1,5 +1,10 @@
 # Lab 1.3 — Pipeline de Transformação Concorrente / Paralela
 
+location: modulo-01-fundamentos/03-pipeline-paralelo
+state: done
+instructions:
+  - test
+
 ## Objetivo
 
 Demonstrar como paralelizar uma transformação CPU-bound em Kof usando o

@@ -1,5 +1,10 @@
 # Lab 2.4 — Exportador de Relatório HTML Interativo
 
+location: modulo-02-dataframe/04-html-report
+state: done
+instructions:
+  - test
+
 ## Objetivo
 
 Gerar um relatório HTML autossuficiente que combina tabela de métricas e gráfico de barras em `<canvas>` com JavaScript inline — o artefato final de um pipeline de dados: dados agregados injetados num template HTML via concatenação de strings.

@@ -1,6 +1,6 @@
 # Kof — Treinamento para Engenharia de Dados & IA
 
-> 51 labs executáveis em `kof 0.5.0-beta` (`~/.kof/bin/kof`), 11 módulos (00–10), 8 datasets, 100% `kof test` pass.
+> 53 labs executáveis em `kof 0.5.0-beta` (`~/.kof/bin/kof`), 11 módulos (00–10), 8 datasets, 100% `kof test` pass.
 
 **Quickstart:**
 ```bash
@@ -24,7 +24,7 @@ bash scripts/run-tests.sh
 - **10 Capstone** (1) — Pipeline `ingest→serve` end-to-end
 
 **Docs:**
-- `docs/OVERVIEW.md` — mapa completo (51 labs)
+- `docs/OVERVIEW.md` — mapa completo (53 labs)
 - `docs/GUIA_EXECUCAO.md` — **passo a passo para cada lab** (00→10, `kof run`/`test`/`serve`/`build`)
 - `Claude.md` — estrutura modular detalhada
 - `docs/LIMITACOES-KOF-0.1.3.md` — `0.1.3→0.5.0` migração (2 gaps mantidos)

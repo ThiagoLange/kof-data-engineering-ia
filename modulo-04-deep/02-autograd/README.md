@@ -1,5 +1,10 @@
 # Lab 4.2 — Grafo Computacional e Diferenciação Automática (Autograd)
 
+location: modulo-04-deep/02-autograd
+state: done
+instructions:
+  - test
+
 ## Objetivo
 
 Implementar diferenciação automática reverse-mode sobre nós escalares `Value` (similar ao micrograd): cada operação (`add`/`mul`/`relu`/`sigmoid`) cria um nó com `prev` e `op`; `backward(loss, 1.0)` propaga gradientes pela regra da cadeia, verificado via gradiente numérico por diferença central.

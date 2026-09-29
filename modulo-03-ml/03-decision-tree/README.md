@@ -1,5 +1,10 @@
 # Lab 3.3 — Árvore de Decisão (Gini Impurity, splits binários)
 
+location: modulo-03-ml/03-decision-tree
+state: done
+instructions:
+  - test
+
 ## Objetivo
 
 Implementar um classificador de árvore de decisão estilo CART sobre

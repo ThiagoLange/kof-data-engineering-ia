@@ -1,4 +1,10 @@
 # Lab 1.6 — PII + Secrets + RateLimit (kof.security)
+
+location: modulo-01-fundamentos/06-pii
+state: done
+instructions:
+  - test
+
 ## Objetivo
 Mascarar PII (`maskEmail`, `maskSsn`), ler `secrets.get` (fallback) e `RateLimiter` (2 req/window) com `log.info`/`error`.
 ## Comandos

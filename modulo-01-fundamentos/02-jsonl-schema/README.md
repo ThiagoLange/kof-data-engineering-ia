@@ -1,5 +1,10 @@
 # Lab 1.2 — Serialização e Desserialização de Schemas JSON e JSONL
 
+location: modulo-01-fundamentos/02-jsonl-schema
+state: done
+instructions:
+  - test
+
 ## Objetivo
 
 Construir um pipeline que:

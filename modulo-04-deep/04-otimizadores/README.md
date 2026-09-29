@@ -1,5 +1,10 @@
 # Lab 4.4 — Otimizadores e Checkpoint de Modelos
 
+location: modulo-04-deep/04-otimizadores
+state: done
+instructions:
+  - test
+
 ## Objetivo
 
 Implementar Adam (Kingma & Ba 2014) manualmente sobre `List<Double>` de parâmetros e persistir/restore via checkpoint JSON — fechando o ciclo treino→salvar→recuperar.

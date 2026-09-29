@@ -1,4 +1,10 @@
 # Lab 9.2 — Perf Native vs JVM (kof profile)
+
+location: modulo-09-portabilidade/02-perf
+state: done
+instructions:
+  - test
+
 ## Objetivo
 Demonstrar `kof profile` (RSS/CPU) e comparar `kof build --target native|js` gates.
 ## Comandos

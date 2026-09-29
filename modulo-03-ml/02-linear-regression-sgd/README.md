@@ -1,5 +1,10 @@
 # Lab 3.2 — Regressão Linear com Gradiente Descendente (SGD manual)
 
+location: modulo-03-ml/02-linear-regression-sgd
+state: done
+instructions:
+  - test
+
 ## Objetivo
 
 Treinar do zero — sem biblioteca de otimização — uma regressão linear

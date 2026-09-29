@@ -1,5 +1,10 @@
 # Lab 1.4 — I/O Binário e Compressão de Dados
 
+location: modulo-01-fundamentos/04-io-binario
+state: done
+instructions:
+  - test
+
 ## Objetivo
 
 Construir um formato binário customizado ("KOF1") com header mágico e

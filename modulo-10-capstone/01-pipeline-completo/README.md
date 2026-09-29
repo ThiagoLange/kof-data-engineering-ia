@@ -1,5 +1,10 @@
 # Lab 10.1 — Capstone Pipeline Produtivo (Batch + RAG + Registry)
 
+location: modulo-10-capstone/01-pipeline-completo
+state: done
+instructions:
+  - test
+
 ## Objetivo
 Pipeline completo que integra `08-01` (lake), `08-02` (DQ), `08-04` (feature), `03-06` (drift proxy), `04-05` (registry), `05-04` (RAG) e `06-05` (serve) em único `main` — artefato de portfólio.
 

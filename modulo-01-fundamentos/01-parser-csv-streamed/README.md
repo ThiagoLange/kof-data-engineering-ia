@@ -1,5 +1,10 @@
 # Lab 1.1 — Parser e Leitura Streamed de CSV/TSV
 
+location: modulo-01-fundamentos/01-parser-csv-streamed
+state: done
+instructions:
+  - test
+
 ## Objetivo
 
 Construir um parser CSV/TSV que:

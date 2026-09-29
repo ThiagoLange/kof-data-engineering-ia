@@ -1,5 +1,10 @@
 # Lab 5.1 — Cliente HTTP para Inferência de LLMs (com Retry e Injeção de Transporte)
 
+location: modulo-05-llms/01-llm-client
+state: done
+instructions:
+  - test
+
 ## Objetivo
 
 Construir um wrapper de cliente para APIs de chat estilo OpenAI/Anthropic que:

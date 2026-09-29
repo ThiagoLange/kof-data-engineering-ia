@@ -1,5 +1,10 @@
 # Lab 4.1 — Classe Tensor N-Dimensional e Álgebra Linear
 
+location: modulo-04-deep/01-tensor
+state: done
+instructions:
+  - test
+
 ## Objetivo
 
 Implementar `Tensor` 2D (row-major sobre `List<Double>`) com indexação `get/set`, `transpose`, `matmul`, `add`/`addScalar`/`scale` e `reshape`, carregando `datasets/iris.csv` como `(n × 4)` Tensor para workloads reais (Gram matrix `Xᵀ·X`).

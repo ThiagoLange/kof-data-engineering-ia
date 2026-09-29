@@ -1,5 +1,10 @@
 # Lab 0.1 — Kof Toolchain (Setup)
 
+location: modulo-00-setup/01-kof-toolchain
+state: done
+instructions:
+  - test
+
 ## Objetivo
 
 Verificar que `kof 0.5.0-beta` está instalado e que todos os datasets estão acessíveis a partir da raiz do repo. Este lab deve ser o primeiro a passar; falhas aqui bloqueiam os demais.

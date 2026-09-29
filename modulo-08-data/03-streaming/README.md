@@ -1,4 +1,10 @@
 # Lab 8.3 — Streaming com kof.mq (Tumbling Window)
+
+location: modulo-08-data/03-streaming
+state: done
+instructions:
+  - test
+
 ## Objetivo
 Publicar `transactions.jsonl` em `SimpleMQ` (queue) e consumir em janelas tumbling de 3, agregando `sum(amount)` por janela com `log.info`.
 ## Comandos

@@ -1,4 +1,10 @@
 # Lab 9.1 — Portabilidade Native/JS
+
+location: modulo-09-portabilidade/01-native
+state: done
+instructions:
+  - test
+
 ## Objetivo
 Demonstrar que `log` e `File` funcionam nos 3 targets, enquanto `spawn`/`kof.db` gateiam (`CONC001`/`DB001`).
 ## Comandos

@@ -1,4 +1,10 @@
 # Lab 8.2 — Data Quality (Expectations + kof.log)
+
+location: modulo-08-data/02-quality
+state: done
+instructions:
+  - test
+
 ## Objetivo
 Validar `customers.jsonl` com expectations (`name required`, `city required`, `isEmail`) e `log.info`/`log.error` estruturado, gerando `report.html`.
 ## Comandos

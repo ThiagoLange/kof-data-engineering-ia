@@ -1,5 +1,10 @@
 # Lab 6.1 — Schema de Ferramentas e Serialização de Chamadas
 
+location: modulo-06-agentes/01-tool-schema
+state: done
+instructions:
+  - test
+
 ## Objetivo
 
 Definir ferramentas (tools) de forma tipada em Kof — `Tool(name, description,

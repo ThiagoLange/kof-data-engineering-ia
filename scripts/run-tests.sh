@@ -48,7 +48,19 @@ while IFS= read -r f; do
 done < <(find "$ROOT" -path "*/exercise.kof" | sort)
 
 echo ""
+echo "== kof md check (all docs, except intentional examples) =="
+MD_FAIL=0
+while IFS= read -r f; do
+  out="$(kof md check "$f" 2>&1 || true)"
+  if ! echo "$out" | grep -q "no MDxxx"; then
+    echo "md DIAG: $f -> $out"
+    MD_FAIL=1
+  fi
+done < <(find "$ROOT" -name "*.md" -not -path "*/examples/*" | sort)
+if [[ $MD_FAIL -eq 0 ]]; then echo "md OK (no MDxxx)"; else echo "md had diagnostics (see above)"; fi
+echo ""
+
 echo "== Summary =="
-echo "Total suites: $TOTAL | Passed: $PASSED | Failed: $FAILED"
-if [[ $FAILED -ne 0 ]]; then exit 1; fi
+echo "Total suites: $TOTAL | Passed: $PASSED | Failed: $FAILED | md: $([[ $MD_FAIL -eq 0 ]] && echo OK || echo FAIL)"
+if [[ $FAILED -ne 0 || $MD_FAIL -ne 0 ]]; then exit 1; fi
 echo "All suites passed."

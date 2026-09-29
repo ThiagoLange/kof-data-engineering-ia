@@ -1,0 +1,177 @@
+// modulo-09-portabilidade/04-kofmd/lab.kof
+//
+// kofmd (0.5.0): scalar inference (§7.1) + canonical block form (§11),
+// implemented in Kof. The CLI (`kof md check|format`) does this outside;
+// here the two core operations are explicit and auditable.
+//
+// No hidden deps: only string scanning (length/charAt/substring).
+// Target: JVM (kof run; default target)
+
+// ─── scalar inference (spec §7.1) ─────────────────────────────────────
+
+isDigitChar(Int c): Int {
+    if (c >= 48 && c <= 57) { return 1 }
+    return 0
+}
+
+// Int: optional '-', 1+ digits, fits signed 32 bits. Overflow degrades to
+// String (§7.1) — compared as text, never parse-then-catch.
+isIntToken(String s): Int {
+    var n = s.length
+    if (n == 0) { return 0 }
+    var i = 0
+    if (s.charAt(0) == 45) { i = 1 }
+    if (i >= n) { return 0 }
+    var j = i
+    while (j < n) {
+        if (isDigitChar(s.charAt(j)) == 0) { return 0 }
+        j = j + 1
+    }
+    var digits = n - i
+    if (digits > 10) { return 0 }
+    if (digits < 10) { return 1 }
+    var lim = "2147483647"
+    if (i == 1) { lim = "2147483648" }
+    var k = 0
+    while (k < 10) {
+        var a = s.charAt(i + k)
+        var b = lim.charAt(k)
+        if (a < b) { return 1 }
+        if (a > b) { return 0 }
+        k = k + 1
+    }
+    return 1
+}
+
+allDigits(String s, Int from, Int to): Int {
+    if (from >= to) { return 0 }
+    var j = from
+    while (j < to) {
+        if (isDigitChar(s.charAt(j)) == 0) { return 0 }
+        j = j + 1
+    }
+    return 1
+}
+
+// Float: [-]digits.digits, optional exponent (EBNF Appendix B).
+isFloatToken(String s): Int {
+    var n = s.length
+    var i = 0
+    if (n > 0 && s.charAt(0) == 45) { i = 1 }
+    var d = i
+    while (d < n && isDigitChar(s.charAt(d)) == 1) { d = d + 1 }
+    if (d == i) { return 0 }
+    if (d >= n || s.charAt(d) != 46) { return 0 }
+    var f = d + 1
+    var e = f
+    while (e < n && isDigitChar(s.charAt(e)) == 1) { e = e + 1 }
+    if (e == f) { return 0 }
+    if (e == n) { return 1 }
+    if (s.charAt(e) != 101 && s.charAt(e) != 69) { return 0 }
+    var p = e + 1
+    if (p < n && (s.charAt(p) == 43 || s.charAt(p) == 45)) { p = p + 1 }
+    if (allDigits(s, p, n) == 0) { return 0 }
+    return 1
+}
+
+isQuoted(String s): Int {
+    var n = s.length
+    if (n >= 2 && s.charAt(0) == 34 && s.charAt(n - 1) == 34) { return 1 }
+    return 0
+}
+
+// Returns "Bool", "Int", "Float", "String" or "Empty" (absent field).
+inferScalar(String raw): String {
+    if (raw.length == 0) { return "Empty" }
+    if (isQuoted(raw) == 1) { return "String" }
+    if (raw == "true" || raw == "false") { return "Bool" }
+    if (isIntToken(raw) == 1) { return "Int" }
+    if (isFloatToken(raw) == 1) { return "Float" }
+    return "String"
+}
+
+// ─── canonical block form (spec §11) ──────────────────────────────────
+
+rankOf(String k): Int {
+    if (k == "last") { return 0 }
+    if (k == "doing") { return 1 }
+    if (k == "next") { return 2 }
+    if (k == "location") { return 3 }
+    if (k == "state") { return 4 }
+    return 5
+}
+
+// Byte-wise ascending compare (explicit, no String `<` reliance).
+cmpStr(String a, String b): Int {
+    var n = a.length
+    if (b.length < n) { n = b.length }
+    var i = 0
+    while (i < n) {
+        var x = a.charAt(i)
+        var y = b.charAt(i)
+        if (x < y) { return -1 }
+        if (x > y) { return 1 }
+        i = i + 1
+    }
+    if (a.length < b.length) { return -1 }
+    if (a.length > b.length) { return 1 }
+    return 0
+}
+
+// Parallel keys/vals rendered canonical: continuity keys first in rank
+// order, the rest byte-ascending. Bubble sort is fine (blocks are tiny).
+canonBlock(List<String> keys, List<String> vals): String {
+    var n = keys.size()
+    var i = 0
+    while (i < n) {
+        var j = i + 1
+        while (j < n) {
+            var ri = rankOf(keys.get(i))
+            var rj = rankOf(keys.get(j))
+            var swap = 0
+            if (rj < ri) { swap = 1 }
+            if (rj == ri && cmpStr(keys.get(j), keys.get(i)) < 0) { swap = 1 }
+            if (swap == 1) {
+                var tk = keys.get(i)
+                keys.set(i, keys.get(j))
+                keys.set(j, tk)
+                var tv = vals.get(i)
+                vals.set(i, vals.get(j))
+                vals.set(j, tv)
+            }
+            j = j + 1
+        }
+        i = i + 1
+    }
+    var sb = ""
+    var k = 0
+    while (k < n) {
+        sb = sb + keys.get(k) + ": " + vals.get(k) + "\n"
+        k = k + 1
+    }
+    return sb
+}
+
+main() {
+    println("true -> " + inferScalar("true"))
+    println("3 -> " + inferScalar("3"))
+    println("-12 -> " + inferScalar("-12"))
+    println("2147483647 -> " + inferScalar("2147483647"))
+    println("2147483648 -> " + inferScalar("2147483648"))
+    println("0.5 -> " + inferScalar("0.5"))
+    println("-2.5e3 -> " + inferScalar("-2.5e3"))
+    println("hello -> " + inferScalar("hello"))
+    println("\"3\" -> " + inferScalar("\"3\""))
+    var keys = listOf<String>()
+    keys.add("state")
+    keys.add("zeta")
+    keys.add("last")
+    keys.add("doing")
+    var vals = listOf<String>()
+    vals.add("active")
+    vals.add("z")
+    vals.add("pesquisa")
+    vals.add("kofmd")
+    println("--- canonical ---")
+    println(canonBlock(keys, vals))
+}

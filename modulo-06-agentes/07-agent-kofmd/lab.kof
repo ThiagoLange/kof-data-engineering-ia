@@ -1,0 +1,117 @@
+// modulo-06-agentes/07-agent-kofmd/lab.kof
+//
+// Agent with kofmd operational memory: each step renders last/doing/next/
+// location/state/result in canonical form (§11), persists it to memory.md,
+// and the next step reads it back with memGet. The planner is a fixed
+// 3-task script on purpose — the subject is the memory, not the LLM
+// (see Lab 6.2 for ReAct with a real LLM).
+//
+// Helpers are inline copies of shared/*.kof (see Source notes).
+// Generated memory.md is gitignored; examples/memory.md is the committed
+// sample. Run from the repo root (paths are repo-root-relative, Lab 8.1
+// pattern).
+// Target: JVM (kof run; default target)
+
+// ─── helpers ────────────────────────────────────────────────────────────
+
+// Source: shared/strutils.kof
+split(String s, String delim): List<String> {
+    var out = listOf<String>()
+    var start = 0
+    var n = s.length
+    var i = 0
+    while (i < n) {
+        if (s.charAt(i) == delim.charAt(0)) {
+            out.add(s.substring(start, i))
+            start = i + 1
+        }
+        i = i + 1
+    }
+    out.add(s.substring(start, n))
+    return out
+}
+
+// Source: shared/strutils.kof
+trim(String s): String {
+    var n = s.length
+    var start = 0
+    while (start < n) {
+        var c = s.charAt(start)
+        if (c != 32 && c != 9 && c != 10 && c != 13) { break }
+        start = start + 1
+    }
+    var end = n
+    while (end > start) {
+        var c = s.charAt(end - 1)
+        if (c != 32 && c != 9 && c != 10 && c != 13) { break }
+        end = end - 1
+    }
+    return s.substring(start, end)
+}
+
+// ─── kofmd memory ───────────────────────────────────────────────────────
+
+// Canonical order (§11): last/doing/next/location/state, then result.
+// Absence is an omitted field (§7.1): no `next` on the last step, no
+// `result` before the end.
+memRender(String last, String doing, String next, String location, String state, String result): String {
+    var sb = "last: " + last + "\n"
+    sb = sb + "doing: " + doing + "\n"
+    if (next.length > 0) { sb = sb + "next: " + next + "\n" }
+    sb = sb + "location: " + location + "\n"
+    sb = sb + "state: " + state + "\n"
+    if (result.length > 0) { sb = sb + "result: " + result + "\n" }
+    return sb
+}
+
+// Reads one col-0 `key: value` line (spec §4: only col 0 constructs).
+memGet(String mem, String key): String {
+    var lines = split(mem, "\n")
+    var i = 0
+    while (i < lines.size()) {
+        var line = lines.get(i)
+        if (line.length > key.length + 1 && line.substring(0, key.length) == key && line.charAt(key.length) == 58) {
+            return trim(line.substring(key.length + 1, line.length))
+        }
+        i = i + 1
+    }
+    return ""
+}
+
+// ─── scripted agent (deterministic; the memory is the subject) ─────────
+
+agentRun(String memPath): String {
+    var loc = "modulo-06-agentes/07-agent-kofmd"
+    var tasks = listOf<String>()
+    tasks.add("read_schema")
+    tasks.add("compute_mean")
+    tasks.add("write_report")
+    var mem = ""
+    var i = 0
+    while (i < tasks.size()) {
+        var doing = tasks.get(i)
+        var next = ""
+        if (i + 1 < tasks.size()) { next = tasks.get(i + 1) }
+        var last = "inicio"
+        if (i > 0) { last = tasks.get(i - 1) }
+        var state = "active"
+        var result = ""
+        if (i + 1 == tasks.size()) {
+            state = "done"
+            result = "pass"
+        }
+        mem = memRender(last, doing, next, loc, state, result)
+        File(memPath).writeText(mem)
+        println("--- passo " + (i + 1).toString() + " ---")
+        println(mem)
+        i = i + 1
+    }
+    return mem
+}
+
+main() {
+    var memPath = "modulo-06-agentes/07-agent-kofmd/memory.md"
+    var mem = agentRun(memPath)
+    println("memoria final em " + memPath)
+    println("retomada: last=" + memGet(mem, "last") + " state=" + memGet(mem, "state"))
+}

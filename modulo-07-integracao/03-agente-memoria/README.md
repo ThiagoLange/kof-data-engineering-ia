@@ -1,5 +1,10 @@
 # Lab 7.3 — Agente com Memória (ReAct + Sandbox + Conversation)
 
+location: modulo-07-integracao/03-agente-memoria
+state: done
+instructions:
+  - test
+
 ## Objetivo
 
 Integrar `06-02` (ReAct), `06-03` (dispatcher sandbox) e `06-04` (Conversation com sumarização) — agente que mantém histórico, chama tools com validação e resume quando o contexto estoura (`maxTokens`).

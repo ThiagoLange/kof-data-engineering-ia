@@ -1,5 +1,10 @@
 # Lab 3.5 — Hold-out e K-Fold Cross-Validation (Generalização)
 
+location: modulo-03-ml/05-validacao
+state: done
+instructions:
+  - test
+
 ## Objetivo
 
 Demonstrar que avaliar no treino engana: implementar `holdout(ratio=0.7)` e `kFoldSplits(k=3)` sobre `iris.csv`/`iris_full.csv`, comparar `accuracy` no teste vs. treino e baseline de maioria, usando métricas de `03-04`.

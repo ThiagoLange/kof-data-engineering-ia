@@ -62,3 +62,5 @@ node_modules/
 # Coverage & reports
 coverage/
 htmlcov/
+# Lab 6.7 agent memory (gerado por kof run — recriável, ver examples/memory.md)
+modulo-06-agentes/07-agent-kofmd/memory.md

@@ -1,5 +1,10 @@
 # Lab 6.2 — Loop de Raciocínio ReAct (Reasoning + Acting)
 
+location: modulo-06-agentes/02-react-loop
+state: done
+instructions:
+  - test
+
 ## Objetivo
 
 Implementar o ciclo **ReAct** — `Thought → Action → Action Input →

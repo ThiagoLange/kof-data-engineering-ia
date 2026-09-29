@@ -1,4 +1,10 @@
 # Lab 8.6 — Contratos & Linhagem
+
+location: modulo-08-data/06-contratos
+state: done
+instructions:
+  - test
+
 ## Objetivo
 Validar `schema` (version + columns) e registrar `lineage.jsonl` com `correlationId` por `tx_id` (source→transform→sink) com `log.info`.
 ## Comandos

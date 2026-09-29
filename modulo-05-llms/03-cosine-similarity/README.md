@@ -1,5 +1,10 @@
 # Lab 5.3 — Motor de Similaridade Vetorial (Cosine Distance)
 
+location: modulo-05-llms/03-cosine-similarity
+state: done
+instructions:
+  - test
+
 ## Objetivo
 
 Implementar cosine similarity/distance sobre `List<Double>` com validação de dims, batch scoring, e recuperação top-k — a primitiva matemática por trás de todo ranking de embeddings em RAG.

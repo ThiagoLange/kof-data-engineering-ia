@@ -1,5 +1,10 @@
 # Lab 6.4 — Gerenciamento de Memória Conversacional e Estado de Agente
 
+location: modulo-06-agentes/04-memoria
+state: done
+instructions:
+  - test
+
 ## Objetivo
 
 Implementar buffer de memória conversacional que conta tokens (wordSplit), detecta estouro de janela (`totalTokens > maxTokens`) e sumariza o meio do histórico, mantendo `system` + `keepLast` mensagens recentes — padrão para manter agentes dentro do context window do LLM.

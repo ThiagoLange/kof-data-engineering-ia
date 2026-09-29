@@ -1,4 +1,10 @@
 # Lab 8.7 — CDC + Exactly-Once (WAL + Watermark Compaction)
+
+location: modulo-08-data/07-cdc
+state: done
+instructions:
+  - test
+
 ## Objetivo
 Simular CDC com `WAL` (`wal.jsonl` append-only), `applyWAL` idempotente via `watermark` e `compaction` (mantém só `txId > watermark`).
 ## Comandos

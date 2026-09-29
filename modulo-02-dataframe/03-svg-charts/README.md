@@ -1,5 +1,10 @@
 # Lab 2.3 — Motor de Geração de Gráficos em SVG Puro
 
+location: modulo-02-dataframe/03-svg-charts
+state: done
+instructions:
+  - test
+
 ## Objetivo
 
 Gerar programaticamente dois gráficos vetoriais SVG — scatter plot (sepal_length vs petal_length, cor por espécie) e barras (contagem de transações por cidade) — mapeando coordenadas de dados para pixels e persistindo `.svg` via `File.writeText`.

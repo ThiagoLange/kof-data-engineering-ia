@@ -1,4 +1,10 @@
 # Lab 6.6 — Avaliação de Agente (success@k, tool_error_rate)
+
+location: modulo-06-agentes/06-avaliacao
+state: done
+instructions:
+  - test
+
 ## Objetivo
 Avaliar replay de `Trace` (Thought/Action/Observation/FinalAnswer) com `evalTraces` calculando `success` (FinalAnswer não vazio e sem error) e `errorRate`.
 ## Comandos

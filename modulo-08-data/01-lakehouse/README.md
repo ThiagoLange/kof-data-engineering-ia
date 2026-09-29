@@ -1,5 +1,10 @@
 # Lab 8.1 — Lakehouse Incremental (Partição + Watermark + Time Travel)
 
+location: modulo-08-data/01-lakehouse
+state: done
+instructions:
+  - test
+
 ## Objetivo
 Implementar ingestão incremental particionada por `city` (`lake/city=<city>/part-v<ver>.jsonl`, estilo hive) com watermark `watermark.csv` (`lastTxId,version`) e `time travel` via histórico de watermarks.
 

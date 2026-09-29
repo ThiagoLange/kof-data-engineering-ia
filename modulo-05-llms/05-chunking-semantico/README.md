@@ -1,4 +1,10 @@
 # Lab 5.5 — Chunking Semântico (por sentença)
+
+location: modulo-05-llms/05-chunking-semantico
+state: done
+instructions:
+  - test
+
 ## Objetivo
 Comparar `chunkByWords(6,2)` vs. `chunkBySentence` vs. `chunkSemantic(maxWords=10)` que agrupa sentenças sem quebrar no meio.
 ## Comandos

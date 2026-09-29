@@ -1,5 +1,10 @@
 # Lab 6.3 — Execução Segura e Sandboxing de Ferramentas
 
+location: modulo-06-agentes/03-sandbox
+state: done
+instructions:
+  - test
+
 ## Objetivo
 
 Implementar um dispatcher sandbox que valida argumentos tipados, impõe timeout cooperativo e executa ferramentas locais (`calculator`, `get_customer`, `fetch_doc`, `slow_tool`) retornando `Result(ok, output, error)` — sem `throw` escapar para o agente.

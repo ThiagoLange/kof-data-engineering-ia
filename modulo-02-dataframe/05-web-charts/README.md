@@ -1,5 +1,10 @@
 # Lab 2.5 — Gráficos para a Web (SVG + Canvas KofJS)
 
+location: modulo-02-dataframe/05-web-charts
+state: done
+instructions:
+  - test
+
 ## Objetivo
 Gerar dashboard HTML com 2 SVGs server-side (`scatter`/`bars`) + `<canvas>` client-side (KofJS), servível via `kof serve` ou `kof.web` (`web.app()` em JVM). Demonstra `One frontend: Kof IR → JVM/Native/KofJS`.
 

@@ -1,5 +1,10 @@
 # Lab 5.4 — Banco Vetorial Simples em Memória (Vector Store RAG)
 
+location: modulo-05-llms/04-vector-store
+state: done
+instructions:
+  - test
+
 ## Objetivo
 
 Construir `VectorStore` em memória com fake embeddings determinísticos, busca k-NN por cosine similarity, persistência JSONL e demonstração RAG sobre `datasets/docs.jsonl`.

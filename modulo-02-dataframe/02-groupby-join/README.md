@@ -1,5 +1,10 @@
 # Lab 2.2 — Agregações, GroupBy e Joins Relacionais
 
+location: modulo-02-dataframe/02-groupby-join
+state: done
+instructions:
+  - test
+
 ## Objetivo
 
 Implementar em Kof operações relacionais sobre `datasets/transactions.jsonl` e `datasets/customers.jsonl`: hash-join (inner/left) entre as duas tabelas e GroupBy com agregações (média, mediana, desvio padrão, min/max, soma e contagem) por cidade.

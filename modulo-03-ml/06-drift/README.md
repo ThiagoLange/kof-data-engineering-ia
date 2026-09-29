@@ -1,4 +1,10 @@
 # Lab 3.6 — PSI / Drift e Calibration (ECE)
+
+location: modulo-03-ml/06-drift
+state: done
+instructions:
+  - test
+
 ## Objetivo
 Calcular PSI entre `iris.csv` e `iris_full.csv` (sepal_length, 5 bins) e ECE proxy para o tree, demonstrando por que `accuracy 1.0` no treino engana.
 ## Comandos

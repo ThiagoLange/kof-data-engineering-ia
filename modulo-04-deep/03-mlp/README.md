@@ -1,5 +1,10 @@
 # Lab 4.3 — Perceptron Multicamadas (MLP) para Classificação Não-Linear
 
+location: modulo-04-deep/03-mlp
+state: done
+instructions:
+  - test
+
 ## Objetivo
 
 Implementar um MLP `4 → 8 (ReLU) → 3 (Softmax)` com pesos `List<Double>` row-major, `matVecMul`, `vecAdd`, ativações ReLU/Sigmoid e softmax; inferência via `predict` (argmax) e acurácia sobre `datasets/iris.csv`.
