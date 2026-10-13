@@ -143,4 +143,4 @@ multilinha acima. Candidato a issue upstream (junto do `mkdir`).
 4. **`exercise.kof` em `exercise/` subdir** para evitar `PKG005` duplicate em `kof run` (module resolution desde 0.3.22, mantido em 0.5.0).
 5. **Partições hive-style reais** em `08-01` via `Directory.createDirectories()` (agora `File.mkdir()` também funciona, mas `Directory` fica).
 6. **Guards de null multilinha** (`if (x == null) { throw ... }`) em todo `readText()` — `assert` não estreita e guard inline quebra (`COMP002`).
-7. **`kof test` e `kof run` verificados** com `0.5.0` (`51` labs `0 failed`).
+7. **`kof test` e `kof run` verificados** com `0.6.3` (`53` labs `0 failed`).
