@@ -7,14 +7,14 @@ instructions:
 
 ## Objetivo
 
-Verificar que `kof 0.5.0-beta` está instalado e que todos os datasets estão acessíveis a partir da raiz do repo. Este lab deve ser o primeiro a passar; falhas aqui bloqueiam os demais.
+Verificar que `kof 0.6.3` está instalado e que todos os datasets estão acessíveis a partir da raiz do repo. Este lab deve ser o primeiro a passar; falhas aqui bloqueiam os demais.
 
 ## Conceito
 
 O treinamento assume `kof` no `PATH` com JDK 25 embedded (virtual threads) e execução a partir da raiz (`datasets/` relativo). Ferramentas verificadas:
 
-- `kof version` — deve reportar `0.5.0-beta`.
-- `kof info` — plataforma, JVM 25 embedded, stdlib 0.5.0.
+- `kof version` — deve reportar `0.6.3`.
+- `kof info` — plataforma, JVM 25 embedded, stdlib 0.6.3.
 - `kof check <file|dir>` — type-check sem emitir bytecode.
 - `kof inspect <file>` — estatísticas de IR antes/depois de otimização.
 - `kof lsp` — Language Server (stdio).

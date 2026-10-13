@@ -76,8 +76,8 @@ cp modulo-09-portabilidade/04-kofmd/examples/agent-memory.md /tmp/mem.md && kof 
 ## Gaps & Limitações
 
 - `record` declarado no `.md` **não** valida mismatch nesta build
-  (testado com/sem aspas, mesmo bloco/separado): a spec §8 manda `MD002`,
-  o CLI 0.5.0-beta não acusa. Documentado como gap; o `MD002` deste lab é
+  (testado com/sem aspas, mesmo bloco/separado, em 0.5.0 e 0.6.3): a spec
+  §8 manda `MD002`, o CLI não acusa. Documentado como gap; o `MD002` deste lab é
   demonstrado via `@intent` fora do vocabulário (funciona, com linha).
 
 - `kof md convert` é não-meta (§21) e é recusado honestamente.

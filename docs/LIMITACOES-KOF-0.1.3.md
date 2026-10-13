@@ -1,8 +1,10 @@
-# Limitações da Linguagem Kof — Versão 0.5.0-beta
+# Limitações da Linguagem Kof — Versão 0.6.3
 
 > Documento de diagnóstico baseado em experimentação contra o compilador
-> instalado localmente (`~/.kof/bin/kof`, kof 0.5.0-beta, JVM backend).
-> Última atualização: 2026-09-28 — contém **apenas limitações verificadas com a versão nova** (0.5.0).
+> instalado localmente (`~/.kof/bin/kof`, kof 0.6.3, JVM backend).
+> Última atualização: 2026-10-13 — gate completo re-executado na 0.6.3
+> (53/53 suítes + `kof md check` OK, zero quebras desde 0.5.0); itens
+> abaixo mantêm o carimbo da versão em que cada um foi verificado.
 > Bugs de 0.1.3 corrigidos em 0.3.2 (#47, #31, #30), de 0.3.2 corrigidos em 0.3.22
 > (List<Double>, LineNumberTable, Value==Value), de 0.3.22 corrigidos em 0.4.4
 > (retorno anulável) e de 0.4.x corrigidos em 0.5.0 (`File.mkdir`)

@@ -1,13 +1,13 @@
-# Guia de Execução — Passo a Passo (53 labs, kof 0.5.0-beta)
+# Guia de Execução — Passo a Passo (53 labs, kof 0.6.3)
 
 > Siga exatamente nesta ordem. Todos os comandos assumem execução na **raiz do repositório** (`kof-data-engineering-ia/`).
 
 ## 0. Pré-requisitos
 
 ```bash
-# 1. Ativar toolchain 0.5.0 (instalada em ~/.kof)
+# 1. Ativar toolchain 0.6.3 (instalada em ~/.kof)
 export PATH="$HOME/.kof/bin:$PATH"
-kof version  # deve imprimir: kof 0.5.0-beta
+kof version  # deve imprimir: kof 0.6.3
 kof info     # JVM 25 embedded, Targets: jvm, native, js
 
 # 2. Conferir datasets (8 arquivos, novo iris_full.csv 150 linhas)
@@ -152,7 +152,7 @@ kof run  modulo-10-capstone/01-pipeline-completo/lab.kof && kof test modulo-10-c
 ## 3. Verificação completa
 
 ```bash
-# Todos os labs de uma vez (51 suítes, ~90s em 0.5.0)
+# Todos os labs de uma vez (53 suítes, ~13min em 0.6.3)
 bash scripts/run-tests.sh
 
 # Apenas testes, sem fmt (mais rápido)

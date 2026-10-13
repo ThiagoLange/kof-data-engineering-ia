@@ -7,4 +7,4 @@ limit: 100
 name: iris
 pinned: "3"
 ratio: 0.75
-version: "0.5.0"
+version: "0.6.3"
