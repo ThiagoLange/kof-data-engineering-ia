@@ -185,7 +185,7 @@ test "add increases size and tokens" {
     var c = makeConversation("sys", 100)
     c.add("user", "hello world")
     assert(c.size() == 2, "2 msgs")
-    assert(c.totalTokens() == 3, "sys(1) + hello world(2)=3 got " + c.totalTokens().toString())
+    assert(c.totalTokens() == 3, "sys(1) + hello world(2)=3 got")
 }
 
 test "needsSummarization triggers on overflow" {
@@ -195,7 +195,7 @@ test "needsSummarization triggers on overflow" {
     var toks = c.totalTokens()
     // add one more to guarantee overflow
     c.add("user", "extra words that overflow")
-    assert(c.needsSummarization() == 1, "must need summary toks " + c.totalTokens().toString())
+    assert(c.needsSummarization() == 1, "must need summary toks")
 }
 
 test "summarize keeps system and last N" {
@@ -207,7 +207,7 @@ test "summarize keeps system and last N" {
     c.add("user", "msg three that will overflow the window with extra words")
     assert(c.needsSummarization() == 1, "needs summary")
     var c2 = summarizeConversation(c, 2)
-    assert(c2.size() == 4, "system + summary + last2 =4 got " + c2.size().toString())
+    assert(c2.size() == 4, "system + summary + last2 =4 got")
     assert(c2.msgs.get(0).role == "system", "first still system")
     assert(c2.msgs.get(1).content.contains("Summary"), "second is summary")
     assert(c2.totalTokens() <= 10 || c2.totalTokens() < c.totalTokens(), "tokens reduced")

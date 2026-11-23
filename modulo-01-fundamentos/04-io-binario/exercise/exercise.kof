@@ -595,7 +595,7 @@ test"ieee roundtrip is bit-exact" {
         putIeee(v, bytes)
         var back = getIeee(bytes, 0)
         println(back.toString())
-        assert(back== v, "bit-exact roundtrip for " + v.toString())
+        assert(back== v, "bit-exact roundtrip for")
         i = i + 1
     }
 }
@@ -671,9 +671,9 @@ test"frame roundtrip from dataset" {
     while(i < 6) {
         var a = rows.get(i)
         var b = restored.get(i)
-        assert(a.id== b.id, "id row " + i.toString())
-        assert(a.salary== b.salary, "salary row " + i.toString())
-        assert(a.name== b.name, "name row " + i.toString())
+        assert(a.id== b.id, "id row")
+        assert(a.salary== b.salary, "salary row")
+        assert(a.name== b.name, "name row")
         i = i + 1
     }
     var first = restored.get(0)
@@ -712,7 +712,7 @@ test"rle roundtrip on real frame bytes" {
     assert(restored.size()== frame.size(), "length survives roundtrip")
     var i = 0
     while(i < frame.size()) {
-        assert(restored.get(i)== frame.get(i), "byte " + i.toString())
+        assert(restored.get(i)== frame.get(i), "byte")
         i = i + 1
     }
 }

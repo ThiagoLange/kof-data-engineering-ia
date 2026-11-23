@@ -7,14 +7,14 @@ instructions:
 
 ## Objetivo
 
-Verificar que `kof 0.6.3` está instalado e que todos os datasets estão acessíveis a partir da raiz do repo. Este lab deve ser o primeiro a passar; falhas aqui bloqueiam os demais.
+Verificar que `kof 0.8.1` está instalado e que todos os datasets estão acessíveis a partir da raiz do repo. Este lab deve ser o primeiro a passar; falhas aqui bloqueiam os demais.
 
 ## Conceito
 
 O treinamento assume `kof` no `PATH` com JDK 25 embedded (virtual threads) e execução a partir da raiz (`datasets/` relativo). Ferramentas verificadas:
 
-- `kof version` — deve reportar `0.6.3`.
-- `kof info` — plataforma, JVM 25 embedded, stdlib 0.6.3.
+- `kof version` — deve reportar `0.8.1`.
+- `kof info` — plataforma, JVM 25 embedded, stdlib 0.8.1.
 - `kof check <file|dir>` — type-check sem emitir bytecode.
 - `kof inspect <file>` — estatísticas de IR antes/depois de otimização.
 - `kof lsp` — Language Server (stdio).
@@ -55,4 +55,5 @@ bash scripts/run-tests.sh
 ## Gaps & Limitações
 
 - `kof fmt` reescreve espaços (idempotente); não afeta semântica.
-- `kof debug` (DAP) e `kof profile` são JVM-only (verificados em 0.5.0).
+- `kof debug` (DAP) cobre JVM e Native (`--target jvm|native`); no JS não há inspector (verificado em 0.8.1).
+- `kof profile` aceita `--target jvm|native|js` (verificado em 0.8.1).

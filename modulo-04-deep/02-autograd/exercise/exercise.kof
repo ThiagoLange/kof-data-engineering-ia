@@ -193,7 +193,7 @@ test "forward mul+add and loss" {
     var loss = valMul(d,d)
     var diff = loss.getData() - 256.0
     if (diff < 0.0) { diff = -diff }
-    assert(diff < 0.0001, "loss 256 got " + loss.getData().toString())
+    assert(diff < 0.0001, "loss 256 got")
     assert(d.getData() == 16.0, "d 16")
 }
 
@@ -206,13 +206,13 @@ test "autograd gradients chain rule" {
     backward(loss, 1.0)
     var da = a.getGrad() - 96.0
     if (da < 0.0) { da = -da }
-    assert(da < 0.0001, "dL/da 96 got " + a.getGrad().toString())
+    assert(da < 0.0001, "dL/da 96 got")
     var db = b.getGrad() - 64.0
     if (db < 0.0) { db = -db }
-    assert(db < 0.0001, "dL/db 64 got " + b.getGrad().toString())
+    assert(db < 0.0001, "dL/db 64 got")
     var dc = c.getGrad() - 32.0
     if (dc < 0.0) { dc = -dc }
-    assert(dc < 0.0001, "dL/dc 32 got " + c.getGrad().toString())
+    assert(dc < 0.0001, "dL/dc 32 got")
 }
 
 test "relu kills negative gradient" {
@@ -221,7 +221,7 @@ test "relu kills negative gradient" {
     var s = valSigmoid(r)
     zeroGradTree(s)
     backward(s, 1.0)
-    assert(x.getGrad() == 0.0, "relu negative grad 0 got " + x.getGrad().toString())
+    assert(x.getGrad() == 0.0, "relu negative grad 0 got")
 }
 
 test "relu passes positive gradient" {
@@ -230,11 +230,11 @@ test "relu passes positive gradient" {
     var s = valSigmoid(r)
     zeroGradTree(s)
     backward(s, 1.0)
-    assert(x.getGrad() > 0.0, "relu positive grad >0 got " + x.getGrad().toString())
+    assert(x.getGrad() > 0.0, "relu positive grad >0 got")
     // sigmoid derivative at 2.0 is ~0.105
     var d = x.getGrad() - 0.104993
     if (d < 0.0) { d = -d }
-    assert(d < 0.001, "relu(2) sigmoid grad ~0.105 got " + x.getGrad().toString())
+    assert(d < 0.001, "relu(2) sigmoid grad ~0.105 got")
 }
 
 test "sigmoid forward in (0,1)" {
@@ -242,7 +242,7 @@ test "sigmoid forward in (0,1)" {
     var s = valSigmoid(v)
     var d = s.getData() - 0.5
     if (d < 0.0) { d = -d }
-    assert(d < 0.001, "sigmoid(0)=0.5 got " + s.getData().toString())
+    assert(d < 0.001, "sigmoid(0)=0.5 got")
 }
 
 test "numerical vs autograd agreement" {
@@ -258,5 +258,5 @@ test "numerical vs autograd agreement" {
     var numGrad = (fp - fm) / (2.0 * eps)
     var diff = numGrad - 96.0
     if (diff < 0.0) { diff = -diff }
-    assert(diff < 0.01, "numerical grad ~96 got " + numGrad.toString())
+    assert(diff < 0.01, "numerical grad ~96 got")
 }

@@ -173,7 +173,7 @@ test "retry succeeds after 2 transient failures" {
     msgs.add(ChatMessage("user", "hi"))
     var out = client.complete(msgs)
     assert(out == "retried ok", "must return scripted content")
-    assert(fake.calls == 3, "expected 3 calls (2 failures + 1 success), got " + fake.calls.toString())
+    assert(fake.calls == 3, "expected 3 calls (2 failures + 1 success), got")
 }
 
 test "non-retryable 4xx fails fast" {
@@ -190,7 +190,7 @@ test "non-retryable 4xx fails fast" {
         assert(e == "HTTP 400: invalid request", "must surface the transport error")
     }
     assert(threw == 1, "must throw on 4xx")
-    assert(errT.calls == 1, "4xx must not be retried; got " + errT.calls.toString() + " calls")
+    assert(errT.calls == 1, "4xx must not be retried; got")
 }
 
 test "max retries exceeded gives up" {
@@ -207,7 +207,7 @@ test "max retries exceeded gives up" {
         threw = 1
     }
     assert(threw == 1, "must throw when retries are exhausted")
-    assert(fake.calls == 3, "expected 1 + 2 retries = 3 calls, got " + fake.calls.toString())
+    assert(fake.calls == 3, "expected 1 + 2 retries = 3 calls, got")
 }
 
 test "429 is retryable" {

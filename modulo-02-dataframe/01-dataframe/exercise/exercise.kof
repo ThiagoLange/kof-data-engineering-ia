@@ -362,7 +362,7 @@ test "describe mean sepal_length" {
     var mu = meanOf(df.col("sepal_length"))
     var diff = mu - 5.906666
     if (diff < 0.0) { diff = -diff }
-    assert(diff < 0.01, "mean sepal_length ~5.90 got " + mu.toString())
+    assert(diff < 0.01, "mean sepal_length ~5.90 got")
 }
 
 test "whereIndex filters setosa" {
@@ -376,7 +376,7 @@ test "maskGt filters petal_length > 5.0" {
     var pl = df.col("petal_length")
     var mask = maskGt(pl, 5.0)
     var c = maskSum(mask)
-    assert(c == 5, "mask sum 5 got " + c.toString())
+    assert(c == 5, "mask sum 5 got")
     var big = df.filterMask(mask)
     assert(big.nrows() == 5, "filtered 5 rows")
 }

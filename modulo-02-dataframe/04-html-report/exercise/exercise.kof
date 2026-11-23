@@ -127,7 +127,7 @@ test "computeMetrics 3 cities" {
     var cs = loadCustomers("datasets/customers.jsonl")
     var txs = loadTransactions("datasets/transactions.jsonl")
     var m = computeMetrics(txs, cs)
-    assert(m.size() == 3, "3 cities got " + m.size().toString())
+    assert(m.size() == 3, "3 cities got")
 }
 
 test "computeMetrics SP totals" {
@@ -141,7 +141,7 @@ test "computeMetrics SP totals" {
             assert(m.get(i).count == 4, "SP count 4")
             var d = m.get(i).total - 1416.24
             if (d < 0.0) { d = -d }
-            assert(d < 0.01, "SP total ~1416.24 got " + m.get(i).total.toString())
+            assert(d < 0.01, "SP total ~1416.24 got")
             found = 1
         }
         i = i + 1

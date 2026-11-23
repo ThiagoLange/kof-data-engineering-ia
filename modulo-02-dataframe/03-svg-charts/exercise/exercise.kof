@@ -204,14 +204,14 @@ test "scatter contains svg and circles" {
     // 15 circles + legend not counted — check substring count via split trick: count occurrences of "<circle"
     var parts = split(svg, "<circle")
     // split on "<circle" yields n_circles+1 parts
-    assert(parts.size() >= 16, "expect >=15 circles + legend, got parts " + parts.size().toString())
+    assert(parts.size() >= 16, "expect >=15 circles + legend, got parts")
 }
 
 test "bar chart per city has 3 bars" {
     var cs = loadCustomers("datasets/customers.jsonl")
     var txs = loadTransactions("datasets/transactions.jsonl")
     var bars = countByCity(txs, cs)
-    assert(bars.size() == 3, "3 bars got " + bars.size().toString())
+    assert(bars.size() == 3, "3 bars got")
     var svg = barSvg(bars, 400, 280)
     assert(svg.contains("<rect"), "rects")
     assert(svg.contains("SP"), "SP label")
@@ -221,7 +221,7 @@ test "mapX maps endpoints correctly" {
     var v = mapX(5.0, 0.0, 10.0, 0.0, 100.0)
     var diff = v - 50.0
     if (diff < 0.0) { diff = -diff }
-    assert(diff < 0.001, "mapX 5 -> 50 got " + v.toString())
+    assert(diff < 0.001, "mapX 5 -> 50 got")
     var v2 = mapX(0.0, 0.0, 10.0, 0.0, 100.0)
     var d2 = v2 - 0.0
     if (d2 < 0.0) { d2 = -d2 }
@@ -233,7 +233,7 @@ test "mapY inverts correctly" {
     var v = mapY(0.0, 0.0, 10.0, 0.0, 100.0)
     var diff = v - 100.0
     if (diff < 0.0) { diff = -diff }
-    assert(diff < 0.001, "mapY 0 -> 100 got " + v.toString())
+    assert(diff < 0.001, "mapY 0 -> 100 got")
 }
 
 test "colorForSpecies mapping" {

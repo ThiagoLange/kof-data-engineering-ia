@@ -211,7 +211,7 @@ parseDocs(String path): List<Doc> {
 
 test "tokenize lowercases and splits punctuation" {
     var toks = tokenize("Hello, World!")
-    assert(toks.size() == 4, "expected 4 tokens, got " + toks.size().toString())
+    assert(toks.size() == 4, "expected 4 tokens, got")
     assert(toks.get(0) == "hello", "word lowercase")
     assert(toks.get(1) == ",", "comma is its own token")
     assert(toks.get(2) == "world", "second word")
@@ -221,7 +221,7 @@ test "tokenize lowercases and splits punctuation" {
 test "countTokens on known sentence" {
     // "Kof is fast." -> kof, is, fast, .  == 4
     var c = countTokens("Kof is fast.")
-    assert(c == 4, "expected 4 tokens, got " + c.toString())
+    assert(c == 4, "expected 4 tokens, got")
 }
 
 test "buildVocab counts frequencies in insertion order" {
@@ -245,7 +245,7 @@ test "chunkByWords sizes and step" {
     var text = "w1 w2 w3 w4 w5 w6 w7 w8 w9 w10 w11"
     var chunks = chunkByWords(text, 4, 2)
     // step=2 over 11 words: [0..4) [2..6) [4..8) [6..10) [8..11) -> 5 chunks
-    assert(chunks.size() == 5, "expected 5 chunks, got " + chunks.size().toString())
+    assert(chunks.size() == 5, "expected 5 chunks, got")
     assert(wordSplit(chunks.get(0)).size() == 4, "full window")
     assert(wordSplit(chunks.get(3)).size() == 4, "full window")
     assert(wordSplit(chunks.get(4)).size() == 3, "short last chunk")
@@ -264,7 +264,7 @@ test "chunkByWords overlap lines up" {
 test "chunkByChars sizes and overlap" {
     var chunks = chunkByChars("abcdefghijk", 4, 2)
     // step=2 over 11 chars: [0..4) [2..6) [4..8) [6..10) [8..11) -> 5 chunks
-    assert(chunks.size() == 5, "expected 5 chunks, got " + chunks.size().toString())
+    assert(chunks.size() == 5, "expected 5 chunks, got")
     assert(chunks.get(0) == "abcd", "chunk 0")
     assert(chunks.get(1) == "cdef", "chunk 1 shares 2 chars")
     assert(chunks.get(2) == "efgh", "chunk 2")
@@ -284,12 +284,12 @@ test "chunkByWords rejects overlap >= window" {
 
 test "docs.jsonl parses and tokenizes" {
     var docs = parseDocs("datasets/docs.jsonl")
-    assert(docs.size() == 5, "expected 5 docs, got " + docs.size().toString())
+    assert(docs.size() == 5, "expected 5 docs, got")
     var total = 0
     var i = 0
     while (i < docs.size()) {
         total = total + countTokens(docs.get(i).title + " " + docs.get(i).body)
         i = i + 1
     }
-    assert(total > 50, "corpus must have a reasonable token count, got " + total.toString())
+    assert(total > 50, "corpus must have a reasonable token count, got")
 }

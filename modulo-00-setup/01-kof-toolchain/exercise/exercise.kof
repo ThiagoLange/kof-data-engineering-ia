@@ -26,11 +26,11 @@ test "iris datasets exist" {
     var raw = File("datasets/iris.csv").readText()
     if (raw == null) { throw "iris.csv readable" }
     var lines = split(raw, "\n")
-    assert(lines.size() >= 16, "iris.csv >=16 lines got " + lines.size().toString())
+    assert(lines.size() >= 16, "iris.csv >=16 lines got")
     var full = File("datasets/iris_full.csv").readText()
     if (full == null) { throw "iris_full.csv readable" }
     var flines = split(full, "\n")
-    assert(flines.size() >= 151, "iris_full ~151 lines got " + flines.size().toString())
+    assert(flines.size() >= 151, "iris_full ~151 lines got")
 }
 
 test "jsonl datasets exist" {

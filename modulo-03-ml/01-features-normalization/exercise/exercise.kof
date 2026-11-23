@@ -348,7 +348,7 @@ test "one-hot encodes iris species with one active column per row" {
             sum = sum + row.get(j)
             j = j + 1
         }
-        assert(sum == 1.0, "row " + i.toString() + " must sum to 1")
+        assert(sum == 1.0, "row")
         i = i + 1
     }
 }

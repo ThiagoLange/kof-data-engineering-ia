@@ -15,7 +15,7 @@ Este repositório contém o material didático, labs executáveis e referências
 
 ## 2. Estrutura Modular e Relação de Exemplos Práticos
 
-Cada lição deve conter: `README.md` (conceito + diagrama), `lab.kof` (código completo comentado) e `exercise.kof` (com asserções `assert`). **Total: 53 labs em 11 módulos (0–10), 100% em `kof 0.6.3`.**
+Cada lição deve conter: `README.md` (conceito + diagrama), `lab.kof` (código completo comentado) e `exercise.kof` (com asserções `assert`). **Total: 53 labs em 11 módulos (0–10), 100% em `kof 0.8.1`.**
 
 ### Módulo 00: Setup & Toolchain
 - **Exemplo 0.1: Verificação da Toolchain Kof** — `kof version/info/check/inspect` + validação de `datasets/` (8 arquivos, `iris_full.csv` 150 linhas).
@@ -66,6 +66,7 @@ Cada lição deve conter: `README.md` (conceito + diagrama), `lab.kof` (código 
 - **Exemplo 6.4: Gerenciamento de Memória Conversacional e Estado de Agente**
 - **Exemplo 6.5: MCP-like Tool Server (`kof.web` simulado)** — `ToolServer` + `register`/`call`
 - **Exemplo 6.6: Avaliação de Agente (`success@k`, `tool_error_rate`)** — `evalTraces`
+- **Exemplo 6.7: Agente com Memória Operacional em kofmd** — memória do agente em documento tipado `kofmd`
 
 ### Módulo 07: Integração End-to-End
 - **Exemplo 7.1: Pipeline Batch (`CSV → Join → GroupBy → HTML`)** — compõe `01-01 + 02-02 + 02-04`
@@ -86,6 +87,7 @@ Cada lição deve conter: `README.md` (conceito + diagrama), `lab.kof` (código 
 - **Exemplo 9.1: Portabilidade Native/JS (`LOG001`)** — `log` + `File` nos 3 targets
 - **Exemplo 9.2: Perf Native vs JVM (`kof profile`)** — `1M loop` + gates `CONC001`/`DB001`
 - **Exemplo 9.3: Contributing (`kof inspect`/`kof debug`)** — `IR` + `known-bugs`
+- **Exemplo 9.4: Documentos Tipados com kofmd** — `kof md check`/`format` + validação `MDxxx`
 
 ### Módulo 10: Capstone Produtivo
 - **Exemplo 10.1: Pipeline Completo (`ingest→validate→feature→RAG→register→serve`)** — integra `08-01 + 08-02 + 08-04 + 03-06 + 04-05 + 05-04 + 06-05`

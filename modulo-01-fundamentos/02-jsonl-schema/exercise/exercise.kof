@@ -122,7 +122,7 @@ test "validateDoc rejects empty title" {
 test "parseJsonl skips blank lines and malformed" {
     var raw = "{\"id\":\"a\",\"title\":\"A\",\"body\":\"x\",\"lang\":\"en\"}\n\nnot-json\n{\"id\":\"b\",\"title\":\"B\",\"body\":\"y\",\"lang\":\"pt\"}"
     var docs = parseJsonl(raw)
-    assert(docs.size() == 2, "expected 2 valid; got " + docs.size().toString())
+    assert(docs.size() == 2, "expected 2 valid; got")
     assert(docs.get(0).id == "a", "first id")
     assert(docs.get(1).id == "b", "second id")
 }
@@ -142,7 +142,7 @@ test "parseJsonl reads real dataset (5 docs)" {
     var raw = File("datasets/docs.jsonl").readText()
     if (raw == null) { throw "docs.jsonl readable" }
     var docs = parseJsonl(raw)
-    assert(docs.size() == 5, "expected 5; got " + docs.size().toString())
+    assert(docs.size() == 5, "expected 5; got")
     var d1 = docs.get(0)
     assert(d1.id == "d1", "d1 id")
     assert(d1.lang == "en", "d1 lang")

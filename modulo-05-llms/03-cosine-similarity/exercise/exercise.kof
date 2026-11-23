@@ -97,7 +97,7 @@ test "identical vectors sim 1" {
     var s = cosineSimilarity(a,b)
     var d = s - 1.0
     if (d < 0.0) { d = -d }
-    assert(d < 0.0001, "identical 1.0 got " + s.toString())
+    assert(d < 0.0001, "identical 1.0 got")
 }
 
 test "orthogonal sim 0" {
@@ -106,7 +106,7 @@ test "orthogonal sim 0" {
     var s = cosineSimilarity(a,b)
     var d = s - 0.0
     if (d < 0.0) { d = -d }
-    assert(d < 0.0001, "ortho 0 got " + s.toString())
+    assert(d < 0.0001, "ortho 0 got")
 }
 
 test "scaled identical still 1" {
@@ -115,7 +115,7 @@ test "scaled identical still 1" {
     var s = cosineSimilarity(a,b)
     var d = s - 1.0
     if (d < 0.0) { d = -d }
-    assert(d < 0.0001, "scaled 1.0 got " + s.toString())
+    assert(d < 0.0001, "scaled 1.0 got")
 }
 
 test "opposite vectors sim -1" {
@@ -124,11 +124,11 @@ test "opposite vectors sim -1" {
     var s = cosineSimilarity(a,b)
     var d = s - -1.0
     if (d < 0.0) { d = -d }
-    assert(d < 0.0001, "-1 got " + s.toString())
+    assert(d < 0.0001, "-1 got")
     var dist = cosineDistance(a,b)
     var dd = dist - 2.0
     if (dd < 0.0) { dd = -dd }
-    assert(dd < 0.0001, "dist 2 got " + dist.toString())
+    assert(dd < 0.0001, "dist 2 got")
 }
 
 test "dim mismatch throws" {

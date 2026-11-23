@@ -173,9 +173,9 @@ test "all catalogue tools serialize" {
     var i = 0
     while (i < tools.size()) {
         var s = toJsonSchema(tools.get(i))
-        assert(s.charAt(0) == 123, "starts with { for " + tools.get(i).name)
+        assert(s.charAt(0) == 123, "starts with { for")
         var last = s.length - 1
-        assert(s.charAt(last) == 125, "ends with } for " + tools.get(i).name)
+        assert(s.charAt(last) == 125, "ends with } for")
         i = i + 1
     }
 }

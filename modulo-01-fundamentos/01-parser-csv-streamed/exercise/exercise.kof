@@ -189,7 +189,7 @@ test "parseFloatStrict decimal" {
     var v = parseFloatStrict("3.14")
     var diff = v - 3.14
     if (diff < 0.0) { diff = -diff }
-    assert(diff < 0.0001, "3.14 ~= " + v.toString())
+    assert(diff < 0.0001, "3.14 ~=")
 }
 
 test "parseIntSafe uses fallback on empty" {
@@ -224,7 +224,7 @@ test "parseRow missing age and salary" {
 
 test "readCsv parses 6 rows from dataset" {
     var rows = readCsv("datasets/employees.csv")
-    assert(rows.size() == 6, "expected 6 rows; got " + rows.size().toString())
+    assert(rows.size() == 6, "expected 6 rows; got")
     var first = rows.get(0)
     assert(first.id == 1, "row0 id")
     assert(first.age == 28, "row0 age")

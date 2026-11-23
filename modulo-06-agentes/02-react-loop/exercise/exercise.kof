@@ -392,7 +392,7 @@ test "react loop resolves 12*8 with calculator and ends with 96" {
     var trace = listOf<String>()
     var agent = ReActAgent(llm, 6, trace)
     var ans = agent.run("quanto e 12*8?")
-    assert(ans == "96", "final answer 96, got: " + ans)
+    assert(ans == "96", "final answer 96, got:")
     assert(llm.turnsUsed() == 2, "exactly 2 llm turns")
     var joined = ""
     var i = 0

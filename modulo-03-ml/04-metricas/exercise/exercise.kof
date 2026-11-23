@@ -141,10 +141,10 @@ test "dataset confusion TP5 TN3 FP1 FN1" {
     var yt = packed.get(0)
     var yp = packed.get(1)
     var cm = confusionMatrix(yt, yp)
-    assert(cm.tp == 5, "TP 5 got " + cm.tp.toString())
-    assert(cm.tn == 3, "TN 3 got " + cm.tn.toString())
-    assert(cm.fp == 1, "FP 1 got " + cm.fp.toString())
-    assert(cm.falseNeg == 1, "FN 1 got " + cm.falseNeg.toString())
+    assert(cm.tp == 5, "TP 5 got")
+    assert(cm.tn == 3, "TN 3 got")
+    assert(cm.fp == 1, "FP 1 got")
+    assert(cm.falseNeg == 1, "FN 1 got")
 }
 
 test "dataset accuracy 0.8" {
@@ -152,7 +152,7 @@ test "dataset accuracy 0.8" {
     var m = computeMetrics(packed.get(0), packed.get(1))
     var d = m.accuracy - 0.8
     if (d < 0.0) { d = -d }
-    assert(d < 0.0001, "accuracy 0.8 got " + m.accuracy.toString())
+    assert(d < 0.0001, "accuracy 0.8 got")
 }
 
 test "dataset precision and recall 0.833" {
@@ -160,10 +160,10 @@ test "dataset precision and recall 0.833" {
     var m = computeMetrics(packed.get(0), packed.get(1))
     var dp = m.precision - 0.833333
     if (dp < 0.0) { dp = -dp }
-    assert(dp < 0.001, "precision ~0.833 got " + m.precision.toString())
+    assert(dp < 0.001, "precision ~0.833 got")
     var dr = m.recall - 0.833333
     if (dr < 0.0) { dr = -dr }
-    assert(dr < 0.001, "recall ~0.833 got " + m.recall.toString())
+    assert(dr < 0.001, "recall ~0.833 got")
 }
 
 test "f1 0.833" {
@@ -171,7 +171,7 @@ test "f1 0.833" {
     var m = computeMetrics(packed.get(0), packed.get(1))
     var d = m.f1 - 0.833333
     if (d < 0.0) { d = -d }
-    assert(d < 0.001, "f1 ~0.833 got " + m.f1.toString())
+    assert(d < 0.001, "f1 ~0.833 got")
 }
 
 test "perfect predictions f1=1" {
@@ -182,7 +182,7 @@ test "perfect predictions f1=1" {
     var m = computeMetrics(yt, yp)
     var d = m.f1 - 1.0
     if (d < 0.0) { d = -d }
-    assert(d < 0.0001, "perfect f1 1.0 got " + m.f1.toString())
+    assert(d < 0.0001, "perfect f1 1.0 got")
     assert(m.accuracy == 1.0, "accuracy 1.0")
 }
 

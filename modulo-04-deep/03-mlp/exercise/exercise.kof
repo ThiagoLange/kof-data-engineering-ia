@@ -261,7 +261,7 @@ test "mlp forward probs sum to 1" {
     var sum = probs.get(0) + probs.get(1) + probs.get(2)
     var d = sum - 1.0
     if (d < 0.0) { d = -d }
-    assert(d < 0.0001, "sum 1.0 got " + sum.toString())
+    assert(d < 0.0001, "sum 1.0 got")
 }
 
 test "softmax of uniform logits ~0.33" {
@@ -270,7 +270,7 @@ test "softmax of uniform logits ~0.33" {
     var s = softmaxVec(v)
     var d = s.get(0) - 0.3333
     if (d < 0.0) { d = -d }
-    assert(d < 0.01, "uniform softmax 0.33 got " + s.get(0).toString())
+    assert(d < 0.01, "uniform softmax 0.33 got")
 }
 
 test "relu vec" {
@@ -312,7 +312,7 @@ test "predict returns valid label" {
     var i = 0
     while (i < data.size()) {
         var p = mlp.predict(data.get(i).features)
-        assert(p >= 0 && p <= 2, "label in 0..2 got " + p.toString())
+        assert(p >= 0 && p <= 2, "label in 0..2 got")
         i = i + 1
     }
 }

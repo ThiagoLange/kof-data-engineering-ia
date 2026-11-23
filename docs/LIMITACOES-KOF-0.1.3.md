@@ -1,38 +1,40 @@
-# Limitações da Linguagem Kof — Versão 0.6.3
+# Limitações da Linguagem Kof — Versão 0.8.1
 
 > Documento de diagnóstico baseado em experimentação contra o compilador
-> instalado localmente (`~/.kof/bin/kof`, kof 0.6.3, JVM backend).
-> Última atualização: 2026-10-13 — gate completo re-executado na 0.6.3
-> (53/53 suítes + `kof md check` OK, zero quebras desde 0.5.0); itens
+> instalado localmente (`~/.kof/bin/kof`, kof 0.8.1, JVM backend).
+> Última atualização: 2026-11-23 — gate completo re-executado na 0.8.1
+> (53/53 suítes + `kof md check` OK, zero quebras desde 0.6.3); itens
 > abaixo mantêm o carimbo da versão em que cada um foi verificado.
 > Bugs de 0.1.3 corrigidos em 0.3.2 (#47, #31, #30), de 0.3.2 corrigidos em 0.3.22
 > (List<Double>, LineNumberTable, Value==Value), de 0.3.22 corrigidos em 0.4.4
 > (retorno anulável) e de 0.4.x corrigidos em 0.5.0 (`File.mkdir`)
 > foram movidos para “Corrigidos”. 0.5.0 quebrou 7 arquivos (null-safety
 > estrita `SEM014`/`SEM049`, todos corrigidos com guards — ver §5).
+> 0.6.3→0.8.1 quebrou 21 arquivos (mensagem de `assert` deve ser literal —
+> `PARSE087`, corrigida em 72 asserts — ver §6).
 
 ---
 
-## 1. Palavras reservadas `fn`/`fun`/`func` (PARSE085) — mantida em 0.5.0
+## 1. Palavras reservadas `fn`/`fun`/`func` (PARSE085) — mantida em 0.8.1
 
 **Sintoma:** `record Confusion(Int tp, Int tn, Int fp, Int fn)` não compila:
 ```
 PARSE085: 'fn' é palavra reservada (Kof não tem keyword de função)
 ```
 
-**Causa:** Em 0.3.2 `fn`/`fun`/`func` viraram palavras reservadas (`SG-001` `b5d3f2a`). Mantido em 0.5.0 (intencional, não bug).
+**Causa:** Em 0.3.2 `fn`/`fun`/`func` viraram palavras reservadas (`SG-001` `b5d3f2a`). Mantido em 0.8.1 (intencional, não bug).
 
 **Mitigação:** `fn` → `falseNeg` (ver `modulo-03-ml/04-metricas/lab.kof:70`).
 
 ---
 
-## 2. `kof.config` ainda sem API estável (SEM025) — mantido
+## 2. `kof.config` ainda sem API estável (SEM025) — mantido em 0.8.1
 
 **Sintoma:**
 ```
 SEM025: Cannot resolve method 'get' on namespace 'config'
 ```
-Verificado em 0.5.0 (`kof 0.5.0-beta`, `config.get("app.name", "default")`).
+Verificado em 0.8.1 (`kof 0.8.1`, `config.get("app.name", "default")` → `SEM025`; `config` segue sem `get` estável).
 
 **Causa:** `kof.config` ainda não expõe `config.get("key")` estável (0.4.0 adicionou `ui-config`, mas `config.get` segue `SEM025`).
 
@@ -40,15 +42,15 @@ Verificado em 0.5.0 (`kof 0.5.0-beta`, `config.get("app.name", "default")`).
 
 ---
 
-## 3. `kof run <arquivo>` compila o diretório inteiro (PKG005/PKG002) — mantido
+## 3. `kof run <arquivo>` compila o diretório inteiro (PKG002/PKG005) — mantido em 0.8.1
 
 **Sintoma:** `kof run modulo-X/lab.kof` falha com `duplicate type name 'foo' in package '' [PKG005]`
-ou `module has 2 main() functions [PKG002]` quando há outro `.kof` com mesmos símbolos no mesmo diretório.
-Verificado em 0.5.0 (`/tmp/opencode/w2_pkg/mod/a.kof` + `b.kof`, agora com `arquivo:linha` no diagnóstico). `kof test <arquivo>` é isolado por arquivo — comportamento inconsistente.
+ou `module has 2 main() functions; expected exactly one [PKG002]` quando há outro `.kof` com mesmos símbolos no mesmo diretório.
+Verificado em 0.8.1 (`/tmp/opencode/t_pkg/a.kof` + `b.kof`; o diagnóstico `PKG002` não traz `arquivo:linha`). `kof test <arquivo>` é isolado por arquivo — comportamento inconsistente.
 
 **Causa:** Desde 0.3.22 o `kof run` trata o diretório como pacote (module resolution `PKG006`/`PKG007`).
 
-**Mitigação:** `exercise.kof` em `exercise/` subdir em todos os 51 labs (ver `docs/TEMPLATE-LICAO.md`).
+**Mitigação:** `exercise.kof` em `exercise/` subdir em todos os 53 labs (ver `docs/TEMPLATE-LICAO.md`).
 
 ---
 
@@ -85,6 +87,29 @@ Arquivos corrigidos: `01-03` lab+exercise, `08-04` lab, `08-06` lab,
 **Armadilha:** guard inline de uma linha (`...; if(raw==null){throw "x"}; ...`)
 dispara `Internal compiler error: null [COMP002]` na 0.5.0 — usar a forma
 multilinha acima. Candidato a issue upstream (junto do `mkdir`).
+
+---
+
+## 6. Mensagem de `assert` deve ser string literal (`PARSE087`) — novo em 0.8.1
+
+**Sintoma:** 21 `exercise.kof` que passavam em 0.6.3 falham em 0.8.1:
+```
+exercise.kof:29:32: error: assert message must be a string literal (statements.md §9) [PARSE087]
+```
+
+**Causa:** A partir da linha 0.8.x o segundo argumento de `assert` precisa ser
+um literal de string — concatenações como `"got " + x.toString()` (e qualquer
+expressão) são recusadas em compile-time. `assert(cond)` sem mensagem continua válido.
+
+**Mitigação (idiom do curso):** mensagem estática descritiva e, quando o valor
+importa, guard explícito com `throw`:
+```kof
+assert(lines.size() >= 16, "iris.csv >=16 lines")
+// ou, mantendo o valor:
+if (lines.size() < 16) { throw "iris.csv >=16 lines got " + lines.size().toString() }
+```
+Arquivos corrigidos (72 asserts): os 21 `exercise/exercise.kof` dos módulos 00–06.
+O valor dinâmico foi removido da mensagem; o prefixo literal foi preservado.
 
 ---
 
@@ -135,7 +160,7 @@ multilinha acima. Candidato a issue upstream (junto do `mkdir`).
 
 ---
 
-## Consequências no desenho (0.5.0)
+## Consequências no desenho (vigente em 0.8.1)
 
 1. **Cada lab é 1 arquivo `.kof` legível** (280 linhas OK) + comentário `// Source: shared/<file>.kof`.
 2. **`falseNeg` ao invés de `fn`** mantido (breaking change intencional `SG-001`).
@@ -143,4 +168,4 @@ multilinha acima. Candidato a issue upstream (junto do `mkdir`).
 4. **`exercise.kof` em `exercise/` subdir** para evitar `PKG005` duplicate em `kof run` (module resolution desde 0.3.22, mantido em 0.5.0).
 5. **Partições hive-style reais** em `08-01` via `Directory.createDirectories()` (agora `File.mkdir()` também funciona, mas `Directory` fica).
 6. **Guards de null multilinha** (`if (x == null) { throw ... }`) em todo `readText()` — `assert` não estreita e guard inline quebra (`COMP002`).
-7. **`kof test` e `kof run` verificados** com `0.6.3` (`53` labs `0 failed`).
+7. **`kof test` e `kof run` verificados** com `0.8.1` (`53` labs `0 failed`).

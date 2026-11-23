@@ -119,14 +119,14 @@ test "single-task sum covers rows 0-3" {
     var s = sumIrisRange("datasets/iris.csv", 0, 4)
     var diff = s - 19.3
     if (diff < 0.0) { diff = -diff }
-    assert(diff < 0.01, "expected ~19.3 got " + s.toString())
+    assert(diff < 0.01, "expected ~19.3 got")
 }
 
 test "sequential sum covers all 15 rows" {
     var s = sumIrisAll()
     var diff = s - 88.6
     if (diff < 0.0) { diff = -diff }
-    assert(diff < 0.01, "expected ~88.6 got " + s.toString())
+    assert(diff < 0.01, "expected ~88.6 got")
 }
 
 test "parallel pipeline total matches sequential" {
@@ -142,7 +142,7 @@ test "parallel pipeline total matches sequential" {
     var seq = sumIrisAll()
     var diff = par - seq
     if (diff < 0.0) { diff = -diff }
-    assert(diff < 0.01, "par=" + par.toString() + " seq=" + seq.toString())
+    assert(diff < 0.01, "par=")
 }
 
 test "await is memoized for same handle" {

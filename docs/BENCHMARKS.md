@@ -1,6 +1,6 @@
 # Benchmarks — Kof `kof bench` & `kof profile`
 
-> Como medir performance dos labs com a toolchain 0.6.3.
+> Como medir performance dos labs com a toolchain 0.8.1.
 
 ## Comandos base (JVM, padrão do treinamento)
 

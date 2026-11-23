@@ -214,7 +214,7 @@ test "distinct cities 3 values" {
     var txs = loadTransactions("datasets/transactions.jsonl")
     var j = hashJoin(txs, cs)
     var cities = distinctCities(j)
-    assert(cities.size() == 3, "3 cities got " + cities.size().toString())
+    assert(cities.size() == 3, "3 cities got")
 }
 
 test "groupby SP count and sum" {
@@ -226,10 +226,10 @@ test "groupby SP count and sum" {
     var i = 0
     while (i < aggs.size()) {
         if (aggs.get(i).city == "SP") {
-            assert(aggs.get(i).count == 4, "SP count 4 got " + aggs.get(i).count.toString())
+            assert(aggs.get(i).count == 4, "SP count 4 got")
             var diff = aggs.get(i).sum - 1416.24
             if (diff < 0.0) { diff = -diff }
-            assert(diff < 0.01, "SP sum ~1416.24 got " + aggs.get(i).sum.toString())
+            assert(diff < 0.01, "SP sum ~1416.24 got")
             found = 1
         }
         i = i + 1
@@ -247,7 +247,7 @@ test "groupby RJ mean" {
         if (aggs.get(i).city == "RJ") {
             var diff = aggs.get(i).mean - 50.65
             if (diff < 0.0) { diff = -diff }
-            assert(diff < 0.01, "RJ mean ~50.65 got " + aggs.get(i).mean.toString())
+            assert(diff < 0.01, "RJ mean ~50.65 got")
         }
         i = i + 1
     }
@@ -263,5 +263,5 @@ test "median odd and even" {
     var m2 = median(b)
     var d = m2 - 2.5
     if (d < 0.0) { d = -d }
-    assert(d < 0.0001, "median even 2.5 got " + m2.toString())
+    assert(d < 0.0001, "median even 2.5 got")
 }
