@@ -14,7 +14,7 @@
 //     u16   nameByteLen + nameByteLen UTF-8 bytes (length-prefixed string)
 //
 // Design notes:
-//   - Kof 0.1.3-beta has no ByteBuffer type and no Double bit-cast, so the
+//   - Kof 0.8.1 still has no ByteBuffer type and no Double bit-cast, so the
 //     buffer is a plain List<Int> (values 0..255) and IEEE-754 is done by
 //     pure arithmetic (frexp-style decomposition). Every step is exact for
 //     normal numbers, so encode/decode round-trips are bit-exact.
@@ -423,9 +423,9 @@ getIeee(List < Int > data, Int pos) : Double {
     return x
 }
 // ─── UTF-8 string codec ────────────────────────────────────────────────
-// Printable-ASCII alphabet for the decode side. Kof 0.1.3-beta has no
-// Int/Char -> String conversion ("A" + char yields the decimal code), so
-// decoding maps each codepoint back through this 95-char lookup table.
+// Printable-ASCII alphabet for the decode side. Decoding maps each codepoint
+// back through this 95-char lookup table instead of relying on an
+// Int/Char -> String conversion ("A" + char yields the decimal code).
 asciiAlphabet() : String {
     return" !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~"
 }

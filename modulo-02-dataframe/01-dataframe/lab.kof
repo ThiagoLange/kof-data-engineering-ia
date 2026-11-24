@@ -51,7 +51,7 @@ trim(String s): String {
 }
 
 // Strict numeric parsing (throws on bad input). Idiomatic per
-// training/idioms/errors.md — no Option<T>/Result<T in 0.1.3-beta.
+// training/idioms/errors.md — no Option<T>/Result<T in 0.8.1.
 // Source: shared/numberparse.kof
 parseFloatStrict(String s): Double {
     if (s == null) { throw "parseFloat: null input" }
@@ -119,13 +119,13 @@ minInt(Int a, Int b): Int {
 
 // SumCount: two Double accumulators returned as one record. Counting as
 // Double avoids Int->Double conversions in arithmetic (see COMP002
-// workarounds in docs/LIMITACOES-KOF-0.1.3.md).
+// workarounds in docs/LIMITACOES-KOF.md).
 record SumCount(Double sum, Double count)
 
 // Series: a labeled numeric column. All stats that need a division are
 // computed by loop-free helpers OUTSIDE the class: a Double accumulator
 // reassigned inside `while` cannot be further combined after the loop in
-// the same function (COMP002 frame crash, docs/LIMITACOES-KOF-0.1.3.md).
+// the same function (COMP002 frame crash, docs/LIMITACOES-KOF.md).
 class Series(String label, List<Double> values) {
     // Constructor params generate accessors automatically (label(), values()).
     size(): Int { return values.size() }
@@ -209,8 +209,8 @@ class Series(String label, List<Double> values) {
         return Series(label, out)
     }
 
-    // maskRows(mask): keep values where mask[i] == 1. Boolean vector is
-    // List<Int> because Kof 0.1.3 has no List<Bool> specialization and no
+    // maskRows(mask): keep values where mask[i] == 1. The mask is List<Int>
+    // (0/1) as a didactic choice; 0.8.1 already has List<Bool> and
     // map/filter — the mask is built by explicit loops (see maskGt).
     maskRows(List<Int> mask): Series {
         if (mask.size() != values.size()) {

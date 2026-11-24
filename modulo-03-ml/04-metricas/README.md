@@ -59,5 +59,5 @@ kof test modulo-03-ml/04-metricas/exercise.kof
 ## Gaps & Limitações
 
 - Métricas binárias apenas; extensão multiclasses requer média macro/micro.
-- `json.decode` com `List<Int>` aninhado em record não suportado no beta — mitigação por scanning manual (ver `docs/LIMITACOES-KOF-0.1.3.md`).
+- `json.decode` com listas aninhadas em `record` já funciona na 0.8.1; o lab mantém o scanning manual de `classification_eval.jsonl` por didática (ver `docs/LIMITACOES-KOF.md`).
 - Sem `Map` de labels — labels fixos 0/1; para K classes, usar `List<Int>` de contagens por classe.

@@ -45,7 +45,7 @@ kof test modulo-05-llms/02-tokenizer-chunking/exercise.kof
 
 ## Padrões & Idiomática Kof
 
-- **Scan char a char com `charAt/length/substring`**: único jeito sem `split` regex em 0.1.3-beta.
+- **Scan char a char com `charAt/length/substring`**: não há `split` com regex na 0.8.1 (o `String.split` usa separador literal), então o scan deixa a tokenização explícita.
 - **`throw` em window/overlap inválidos** (0 ou overlap ≥ window).
 - **`List.set` para bump de freq em vocab** — `vocab.set(j, VocabEntry(..., freq+1))`.
 - **Sem alocação de Tokenizer object**: funções puras sobre `String`/`List<String>`.

@@ -76,8 +76,8 @@ kof test modulo-06-agentes/01-tool-schema/exercise.kof
   campos explícita e testável por `contains`.
 - **`jsonEscape` explícito** — descrições de tools são texto livre; sem
   escaping, uma aspa quebraria o payload inteiro.
-- **`required` como `Int` 0/1**: nullable types e `Option<T>` não existem em
-  0.1.3-beta; flags inteiras são o workaround canônico do treinamento.
+- **`required` como `Int` 0/1**: `Option<T>` ainda não existe na 0.8.1
+  (nullable existe); flags inteiras 0/1 são o padrão didático do treinamento.
 - **`throw` em tipos desconhecidos** em `jsonType` — erro de programação
   (tipo não mapeado), não condição de runtime.
 

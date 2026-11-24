@@ -27,7 +27,7 @@ bash scripts/run-tests.sh
 - `docs/OVERVIEW.md` — mapa completo (53 labs)
 - `docs/GUIA_EXECUCAO.md` — **passo a passo para cada lab** (00→10, `kof run`/`test`/`serve`/`build`)
 - `Claude.md` — estrutura modular detalhada
-- `docs/LIMITACOES-KOF-0.1.3.md` — `0.1.3→0.8.1` migração (gaps catalogados §1–§6)
+- `docs/LIMITACOES-KOF.md` — limitações ativas na 0.8.1 (§1–§11) + histórico de correções
 - `docs/GLOSSARIO.md` — Kof×Python/Spark
 - `docs/BENCHMARKS.md` / `docs/RUBRICA.md` / `docs/EXERCISES.md`
 

@@ -51,8 +51,8 @@ trim(String s): String {
 
 // ─── domain ────────────────────────────────────────────────────────────
 
-// One typed argument of a tool. `required` uses Int 0/1 because nullable
-// types and Option<T> do not exist in 0.1.3-beta (see LIMITACOES doc);
+// One typed argument of a tool. `required` uses Int 0/1 because Option<T>
+// does not exist in 0.8.1 (nullable does; see LIMITACOES doc);
 // required == 1 means the LLM MUST provide the argument.
 record Param(String name, String type, String description, Int required)
 

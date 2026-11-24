@@ -16,7 +16,7 @@ Dados transacionais normalizados exigem duas operações fundamentais:
 1. **Join**: `transactions.customer_id = customers.customer_id` — hash-join (fase build: indexar `customers`; fase probe: casar cada transação). A variante inner aborta em FK dangling (`throw`); a variante left preserva a linha com cidade/name vazios.
 2. **GroupBy + agregações**: particionar o join por `city` e computar estatísticas por grupo. `mean`/`stddev` são acumuladores lineares O(n); `median` requer ordenação (bubble sort O(n²) aceitável para grupos pequenos, didático).
 
-Em Kof 0.1.3-beta não há `Map` genérico otimizado nem `sort` na stdlib; o join é linear-scan (aceitável para n=5/7) e a mediana usa bubble sort explícito. Agregações reutilizam `shared/math.kof` com o workaround COMP002 (RHS puramente Double).
+A 0.8.1 já tem `Map<K,V>` e `List.sort()`; o lab usa join linear-scan (aceitável para n=5/7) e bubble sort explícito por didática, deixando o algoritmo visível. Agregações reutilizam `shared/math.kof`.
 
 ## Diagrama
 

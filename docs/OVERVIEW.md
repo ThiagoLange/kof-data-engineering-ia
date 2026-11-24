@@ -35,7 +35,7 @@ kof build --target native|js <lab.kof> # gates CONC001/DB001
 ## Docs
 
 - `Claude.md` — estrutura modular completa (53 labs)
-- `docs/LIMITACOES-KOF-0.1.3.md` — migração `0.1.3→0.8.1` (gaps catalogados §1–§6)
+- `docs/LIMITACOES-KOF.md` — limitações ativas na 0.8.1 (§1–§11) + histórico de correções
 - `docs/GLOSSARIO.md` — Kof×Python/Spark
 - `docs/BENCHMARKS.md` — `profile`/`bench` para `tensor`/`RLE`
 - `docs/RUBRICA.md` — certificação Básica/Intermediária/Avançada

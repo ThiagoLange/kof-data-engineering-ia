@@ -75,6 +75,6 @@ kof test modulo-01-fundamentos/03-pipeline-paralelo/exercise.kof
 
 - **Native: CONC001** — `spawn`/`await` não compilam; apenas target JVM.
 - **JS: CONC003** — `spawn` compila mas é sequencial (single-thread).
-- **Kof 0.1.3-beta `spawn f(var)`** — `VerifyError` se o argumento for variável; por isso o lab usa `sumIrisA/B/C/D()` zero-arg wrappers com path literal interno (`docs/LIMITACOES-KOF-0.1.3.md#2.5`).
+- **`spawn f(var)` histórico** — o `VerifyError` de `spawn` com variável foi corrigido na 0.3.22; o lab mantém `sumIrisA/B/C/D()` zero-arg com path literal interno como recurso didático (`docs/LIMITACOES-KOF.md`).
 - **`await` memoizado** — duas chamadas no mesmo handle devolvem o mesmo valor; exceções na task chegam no `await` com a mensagem original (`learn/18-concurrency.md`).
 - **Dataset ampliado:** `datasets/iris_full.csv` (150 linhas, 50/classe, ruído gaussiano) permite demonstrar speed-up real do paralelismo vs. `iris.csv` (15 linhas).

@@ -96,7 +96,7 @@ Cada lição deve conter: `README.md` (conceito + diagrama), `lab.kof` (código 
 
 ## 3. Padrões de Implementação de Código
 
-- **Sem dependências ocultas:** Todo script que use dados de exemplo deve consumir arquivos localizados na pasta raiz `./datasets/` (ex: `datasets/boston.csv`, `datasets/docs.jsonl`).
+- **Sem dependências ocultas:** Todo script que use dados de exemplo deve consumir arquivos localizados na pasta raiz `./datasets/` (ex: `datasets/iris_full.csv`, `datasets/docs.jsonl`).
 - **Tratamento Robusto de Erros:** Não use retorno nulo silencioso nem `panic`/`abort` injustificados; trate exceções e retorne tipos `Result`/erros explícitos conforme a semântica da linguagem Kof.
 - **Assertividade:** Todos os arquivos de exercício (`exercise.kof`) devem conter asserções comentadas (`assert eq(result, expected)`) para conferência imediata via CLI.
 - **Credenciais:** Chaves de API e segredos devem ser lidos obrigatoriamente de variáveis de ambiente do sistema (`ENV["LLM_API_KEY"]`), jamais gravados estaticamente no código.

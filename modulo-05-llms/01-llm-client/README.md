@@ -30,7 +30,7 @@ falham, APIs limitam taxa (429) e instâncias caem (5xx). O padrão defensivo é
    virtual threads). O atraso cresce exponencialmente para não atolar a API
    sob falha em cascata.
 
-Em Kof 0.1.3-beta, `http.post(url, body[, headers])` retorna o corpo como
+Na 0.8.1, `http.post(url, body[, headers])` retorna o corpo como
 `String` e lança `String` em erro de rede/HTTP — exatamente a superfície que o
 `Transport` espelha. Como exceções são `String`, a política de retry inspeciona
 o prefixo da mensagem (`"HTTP 5"` / `"HTTP 429"`).
@@ -76,8 +76,7 @@ kof test modulo-05-llms/01-llm-client/exercise.kof
 
 - **`interface` + `class ... implements`** para injeção de dependência manual
   (sem container — ver `philosophy.md`). Classes que implementam interface
-  precisam de fields + `constructor` explícito; `class X(a, b) implements I`
-  não é aceito pelo parser 0.1.3-beta.
+  declaram fields + `constructor` explícito neste lab (forma canônica do curso).
 - **`throw`/`catch (String e)`** como mecanismo de erro; erros transitórios são
   reconhecidos por prefixo na mensagem.
 - **`time.sleep(ms)`** para backoff (JVM); mantido curto (base 50ms) para os

@@ -145,10 +145,10 @@ parseIntStrict(String s): Int {
 
 // ─── minimal flat-JSON field extraction ────────────────────────────────
 //
-// json.decode<T> cannot be used for argument records here: records with
-// non-String fields crash the 0.1.3-beta compiler (ClassFormatError, see
-// docs/LIMITACOES-KOF-0.1.3.md and this module's report). Action Inputs
-// are flat JSON objects, so we extract raw tokens by string scanning.
+// json.decode<T> is intentionally avoided for argument records here: Action
+// Inputs are flat JSON objects, so we extract raw tokens by string scanning.
+// (The historical ClassFormatError with non-String record fields was fixed
+// in 0.3.22+; see docs/LIMITACOES-KOF.md.)
 // NOTE: no escape sequences inside strings (datasets are ASCII/flat).
 
 // jsonFieldRaw(s, key): raw token for "key" in a flat JSON object; "" if
@@ -317,9 +317,9 @@ parseFinalAnswer(String text): String {
 // ─── FakeLLM (programmed script, 100% offline) ─────────────────────────
 
 // FakeLLM plays a canned script turn by turn, ignoring the prompt content
-// (it only checks the prompt is non-empty). Class constructor fields are
-// final in 0.1.3-beta, so the mutable turn counter lives in a 1-element
-// List<Int> — see docs/LIMITACOES-KOF-0.1.3.md.
+// (it only checks the prompt is non-empty). The mutable turn counter lives in
+// a 1-element List<Int> as a didactic pattern (constructor fields were final
+// in 0.1.3-beta; 0.8.1 supports reassignment) — see docs/LIMITACOES-KOF.md.
 class FakeLLM(List<String> script, List<Int> turn) {
     complete(String prompt): String {
         if (prompt.length == 0) { throw "fake llm: empty prompt" }

@@ -23,8 +23,9 @@ mesmos:
    versão, permitindo rejeitar arquivos estranhos logo na abertura.
 2. **Campos de tamanho fixo** — `id` como inteiro de 4 bytes big-endian e
    `salary` como IEEE-754 binary64 de 8 bytes, bit-empacotado à mão
-   (decomposição estilo frexp: sinal, expoente, mantissa) porque a stdlib de
-   Kof 0.1.3-beta não expõe bit-cast de `Double`.
+   (decomposição estilo frexp: sinal, expoente, mantissa) porque a stdlib da
+   0.8.1 ainda não expõe bit-cast de `Double` (verificado: `d.toBits()` →
+   `SEM074`, `math.doubleToLongBits` → `SEM025`).
 3. **Campos length-prefixed** — `name` como UTF-8 precedido por um `u16` com
    o número de bytes, eliminando delimitadores e ambiguidade.
 4. **Compressão** — RLE como pares `(count, value)` com contagem limitada a
@@ -108,10 +109,10 @@ demo e o apaga ao final (cleanup verificado na saída).
   de ASCII imprimível (32..126) com `substring`; codepoints não-ASCII no
   wire **lançam exceção** (o formato é UTF-8 de verdade na escrita — 1 a 3
   bytes — mas o runtime não reconstrói o caractere). Novo gap a consolidar
-  em `docs/LIMITACOES-KOF-0.1.3.md`.
+  em `docs/LIMITACOES-KOF.md`.
 - **`arr == null` em `Int[]` gera `VerifyError`** no runtime (JVM) — nunca
   compare o array de `readBytes()` com `null`; use `File(path).exists()`
-  antes de ler. Novo bug a consolidar em `docs/LIMITACOES-KOF-0.1.3.md`.
+  antes de ler. Novo bug a consolidar em `docs/LIMITACOES-KOF.md`.
 - **`intVar * 1.0` dentro de `while` dispara COMP002** (frame crash do ASM);
   use a variável Int como termo aditivo (`acc * 256.0 + bj`), que a
   linguagem alarga implicitamente. Novo bug a consolidar.

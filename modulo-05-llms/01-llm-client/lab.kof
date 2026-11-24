@@ -108,9 +108,9 @@ class ErrorTransport implements Transport {
 }
 
 // extractJsonString(body, key): minimal scanner that pulls the string value
-// of "key" out of a JSON document. Needed because json.decode<T> cannot
-// handle records nested inside List fields in 0.1.3-beta (JSN00x gap) — an
-// OpenAI-style response nests the message inside choices[0].
+// of "key" out of a JSON document. An OpenAI-style response nests the message
+// inside choices[0], so we scan it explicitly (the historical nested-record
+// gap from 0.1.3-beta no longer applies to 0.8.1).
 extractJsonString(String body, String key): String {
     var pat = "\"" + key + "\":\""
     var n = body.length

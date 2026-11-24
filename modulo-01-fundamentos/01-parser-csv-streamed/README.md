@@ -78,17 +78,15 @@ kof test modulo-01-fundamentos/01-parser-csv-streamed/exercise.kof
   Ver `training/idioms/errors.md`.
 - **`parseIntSafe`/`parseFloatSafe` com fallback explícito** para campos
   opcionais — workaround marcado, não idiomatic, mas necessário até
-  `Option<T>` ser implementado. Ver `docs/LIMITACOES-KOF-0.1.3.md`.
-- **Loops explícitos** no lugar de `map`/`filter` (gaps em 0.1.3-beta).
+  `Option<T>` ser implementado. Ver `docs/LIMITACOES-KOF.md`.
+- **Loops explícitos** no lugar de `map`/`filter` — escolha didática; a 0.8.1 já tem `map`/`filter` nativos (desde 0.2.0), e os loops mantêm o parsing visível.
 - **`record Record(...)`** para linhas tipadas; records têm igualdade por
   conteúdo no JVM (ver `training/language/types.md`).
 
 ## Gaps & Limitações
 
-- Streams reais (`Reader.readLine()`) não existem na stdlib 0.1.3-beta —
+- Streams reais (`Reader.readLine()`) não existem na stdlib da 0.8.1 —
   lemos o arquivo inteiro e iteramos por linhas. Para >100 MB, prefira
   Lab 1.4 (I/O binário).
-- `String.split` não existe; implementado manualmente em `splitManual`
-  (helpers inline; canônico em `shared/strutils.kof`).
-- Nullable types em retorno de função não suportados — ver
-  `docs/LIMITACOES-KOF-0.1.3.md`.
+- `String.split` existe na 0.8.1, mas retorna `array` e usa separador literal; o lab mantém `splitManual` retornando `List<String>` por didática (helpers inline; canônico em `shared/strutils.kof`).
+- Retorno anulável é suportado desde 0.4.4 (`readText(): String?`); estreite sempre com `if (x == null)` antes de usar — ver `docs/LIMITACOES-KOF.md`.

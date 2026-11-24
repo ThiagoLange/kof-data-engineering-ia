@@ -3,12 +3,13 @@
 // Concurrent pipeline: each task reads its own slice of a CSV and aggregates.
 // Demonstrates spawn/await with isolated I/O per task.
 //
-// IMPORTANT (Kof 0.1.3-beta limitation):
-//   spawn f(arg) only compiles with ARG-LITERALS or zero-arg functions.
-//   Passing a variable as the argument crashes at runtime with
+// HISTORICAL NOTE (fixed since 0.3.22):
+//   In 0.1.3-beta, spawn f(arg) only compiled with ARG-LITERALS or
+//   zero-arg functions; passing a variable crashed at runtime with
 //   "Bad type on operand stack ... Lambda0 ... not assignable to ...".
-//   See docs/LIMITACOES-KOF-0.1.3.md. Workaround: each task does its own
-//   I/O from a fixed literal path, or uses zero-arg wrappers.
+//   `spawn f(var)` works on 0.8.1; each task still does its own I/O from a
+//   fixed literal path (zero-arg wrappers) as a didactic pattern.
+//   See docs/LIMITACOES-KOF.md.
 //
 // Source: shared/strutils.kof, shared/numberparse.kof
 // Target: JVM (spawn/await — Native reports CONC001).

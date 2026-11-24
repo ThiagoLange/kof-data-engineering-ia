@@ -96,8 +96,8 @@ kof test modulo-03-ml/03-decision-tree/exercise.kof
 ## Padrões & Idiomática Kof
 
 - **Árvore em arrays paralelos** (`feat/thresh/left/right/pred`): evita
-  tipos recursivos (`record Node` contendo `Node`), que não são
-  suportados pelo parser 0.1.3-beta. Filhos são registrados **antes** do
+  tipos recursivos (`record Node` contendo `Node`); arrays paralelos mantêm
+  a árvore flat e serializável. Filhos são registrados **antes** do
   pai, então os ids já existem quando a linha do pai é escrita.
 - **Subconjuntos como `List<Int>` de índices**: nunca copiamos linhas de
   `X`; partições carregam só índices (O(k) por nó).

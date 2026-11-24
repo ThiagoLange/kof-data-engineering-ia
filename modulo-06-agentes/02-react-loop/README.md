@@ -80,11 +80,11 @@ kof test modulo-06-agentes/02-react-loop/exercise.kof
 
 ## Padrões & Idiomática Kof
 
-- **Classe com estado mutável via `List`**: campos de construtor são `final`
-  em 0.1.3-beta (reatribuir compila mas falha em runtime com
-  `IllegalAccessError`). O contador de turnos do FakeLLM é um
-  `List<Int>` de 1 elemento — mutação por `set(0, n)`, imitação de campo
-  mutável. Ver "Gaps & Limitações".
+- **Classe com estado mutável via `List`**: estudado originalmente porque
+  campos de construtor eram `final` na 0.1.3-beta (reatribuição falhava em
+  runtime). Na 0.8.1 a reatribuição de campo já funciona, mas o lab mantém o
+  contador de turnos do FakeLLM em `List<Int>` de 1 elemento (`set(0, n)`) como
+  padrão didático. Ver "Gaps & Limitações".
 - **`record` para resultados de parser** não é necessário: valores ausentes
   são `""` e o contrato textual garante presença; erros de contrato usam
   `throw` (idiomático).

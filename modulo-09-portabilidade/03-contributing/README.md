@@ -6,7 +6,7 @@ instructions:
   - test
 
 ## Objetivo
-Demonstrar `kof inspect` (IR), `kof debug` (DAP) e como reportar bugs via `docs/LIMITACOES`.
+Demonstrar `kof inspect` (IR), `kof debug` (DAP) e como reportar bugs via `docs/LIMITACOES-KOF.md`.
 ## Comandos
 ```bash
 kof run modulo-09-portabilidade/03-contributing/lab.kof

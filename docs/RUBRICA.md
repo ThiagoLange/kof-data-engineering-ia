@@ -40,4 +40,4 @@ Antes de pedir revisão:
 1. `kof check modulo-XX/.../lab.kof` sem erros.
 2. `kof test modulo-XX/.../exercise.kof` 0 failed.
 3. `kof run modulo-XX/.../lab.kof` regenera artefato esperado.
-4. `docs/LIMITACOES-KOF-0.1.3.md` gaps citados corretamente no `README.md`.
+4. `docs/LIMITACOES-KOF.md` gaps citados corretamente no `README.md`.

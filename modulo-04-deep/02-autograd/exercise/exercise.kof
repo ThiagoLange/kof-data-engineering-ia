@@ -5,9 +5,10 @@
 // propagates gradients via chain rule. Chain-rule correctness is
 // verified against finite-difference numerical gradient.
 //
-// Pattern: class fields are final in 0.1.3-beta, so grad is stored
-// as List<Double> box (mutated via set), exactly like the mutable
-// counter in Lab 6.2 FakeLLM.
+// Pattern: grad is stored as a List<Double> box (mutated via set). This was
+// required when constructor fields were final in 0.1.3-beta; 0.8.1 supports
+// field reassignment, but the box keeps the node state explicit and mirrors
+// the mutable counter in Lab 6.2 FakeLLM.
 //
 // Source: shared/math.kof
 // Target: JVM (kof run; default target)

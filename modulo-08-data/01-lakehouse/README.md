@@ -19,7 +19,7 @@ kof test modulo-08-data/01-lakehouse/exercise/exercise.kof
 
 ## Padrões
 - `cityForTx` linear scan (datasets pequenos); produção usaria `Map`.
-- `Directory(...).createDirectories()` + `File.writeText` para partições (`File.mkdir()` voltou a funcionar em 0.5.0, mas `Directory` fica — ver `docs/LIMITACOES-KOF-0.1.3.md`).
+- `Directory(...).createDirectories()` + `File.writeText` para partições (`File.mkdir()` voltou a funcionar em 0.5.0, mas `Directory` fica — ver `docs/LIMITACOES-KOF.md`).
 - Watermark como `csv` append-only — auditável.
 
 ## Gaps

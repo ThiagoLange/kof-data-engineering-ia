@@ -14,7 +14,7 @@ Implementar um dispatcher sandbox que valida argumentos tipados, impõe timeout 
 O agente nunca chama tools diretamente; todo `Call(tool, argsJson)` passa por `dispatch(call, timeoutMs)` que:
 
 1. **Valida tool**: desconhecida → `Result(0,"", "unknown tool")`.
-2. **Valida timeout**: `slow_tool` com `timeoutMs<200` → `Result(0,"","timeout after ...")` (cooperativo — Kof não tem interrupção de thread real em 0.1.3).
+2. **Valida timeout**: `slow_tool` com `timeoutMs<200` → `Result(0,"","timeout after ...")` (cooperativo — a 0.8.1 tem cancelamento cooperativo via `cancel`/`awaitTimeout`, não interrupção preemptiva de thread).
 3. **Executa em `try/catch`**: cada tool parseia JSON via `extractJsonNumber/jsonFieldString` (robusto a espaços), valida tipos e lança `String` em erro; `dispatch` captura e retorna `Result` falho.
 4. **Ferramentas**:
    - `calculator`: `a op b` com `op ∈ +,-,*,/` e divisão por zero validada.

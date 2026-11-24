@@ -32,9 +32,8 @@ Colunas categóricas (strings) não têm ordem numérica; atribuir inteiros
 Encoding** cria uma coluna binária por categoria, com exatamente um `1.0`
 por linha.
 
-Em Kof 0.1.3-beta não há `List.map` nem biblioteca de estatística, então
-tudo é loop `while` explícito sobre `List<Double>` — o que, didaticamente,
-deixa a matemática visível.
+A 0.8.1 já tem `List.map`/`filter` e `math.sqrt`; o lab usa loops `while`
+explícitos sobre `List<Double>` por didática, o que deixa a matemática visível.
 
 ## Diagrama
 
@@ -79,16 +78,16 @@ kof test modulo-03-ml/01-features-normalization/exercise.kof
   `main` é o único ponto de efeito.
 - **`throw` para colunas inválidas** (vazia, variância zero) — erro de
   dados é exceção, não sentinel (`training/idioms/errors.md`).
-- **Loops `while` explícitos** no lugar de `map`/`filter` (gap 0.1.3-beta).
+- **Loops `while` explícitos** no lugar de `map`/`filter` (didático; nativos existem na 0.8.1).
 - **Conversão Int→Double via `1.0 * n`**: `n.toDouble()` como statement
   isolado gera bytecode inválido no backend JVM (ver Gaps).
 
 ## Gaps & Limitações
 
-- `sqrt` usa método de Newton (stdlib 0.1.3-beta não tem `math.sqrt`).
-  O canônico `shared/math.kof` usa 10 iterações com `g0 = x`, o que deixa
-  ~1.6% de erro para variâncias ~1e5 — aqui usamos 40 iterações para
-  precisão de double (semântica idêntica, precisão corrigida).
+- `sqrt` usa método de Newton por didática (a 0.8.1 tem `math.sqrt`).
+  O canônico `shared/math.kof` mantém Newton com 10 iterações e `g0 = x`, o que
+  deixa ~1.6% de erro para variâncias ~1e5 — aqui usamos 40 iterações para
+  precisão de double.
 - Sem `List.map`/higher-order: `oneHot` aninha dois `while` em vez de
   `labels.map { ... }`.
 - `String.split` ausente: parser manual inline (`// Source:

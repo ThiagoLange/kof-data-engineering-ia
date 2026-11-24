@@ -86,7 +86,7 @@ kof test modulo-03-ml/02-linear-regression-sgd/exercise.kof
 
 - **Acumuladores `Double` locais** (`gradW`, `gradB`) com RHS puramente
   Double dentro de `while` — padrão obrigatório para evitar COMP002 no
-  backend JVM (ver `docs/LIMITACOES-KOF-0.1.3.md`).
+  backend JVM (ver `docs/LIMITACOES-KOF.md`).
 - **Conversão Int→Double com `1.0 * n`**, nunca `n.toDouble()` isolado
   (emite `ClassFormatError`/COMP002 — ver Gaps abaixo e Lab 3.1).
 - **`record LinReg(w, b)`** como "pesos do modelo" — valor imutável,
